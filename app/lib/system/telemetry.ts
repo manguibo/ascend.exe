@@ -7,6 +7,8 @@ export type NextActionAdvice = {
   detail: string;
 };
 
+export type RiskBand = "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
+
 export function getCompromisedDayCount(states: readonly DisciplineState[]): number {
   return states.filter((state) => state === "COMPROMISED").length;
 }
@@ -36,6 +38,14 @@ export function getRetentionPct(preDecayTotalXp: number, postDecayTotalXp: numbe
 
   const raw = Math.round((postDecayTotalXp / preDecayTotalXp) * 100);
   return Math.max(0, Math.min(100, raw));
+}
+
+export function getRiskBand(valuePct: number): RiskBand {
+  const clamped = Math.max(0, Math.min(100, Math.round(valuePct)));
+  if (clamped >= 75) return "CRITICAL";
+  if (clamped >= 50) return "HIGH";
+  if (clamped >= 25) return "MODERATE";
+  return "LOW";
 }
 
 export function getNextActionAdvice(

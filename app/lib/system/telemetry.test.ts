@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildSystemSnapshotFromLogInput } from "./mock-data";
 import { defaultSessionLogInput } from "./session-state";
-import { getCompromisedDayCount, getDecayPressurePct, getDisciplineRiskPct, getNextActionAdvice, getRetentionPct } from "./telemetry";
+import { getCompromisedDayCount, getDecayPressurePct, getDisciplineRiskPct, getNextActionAdvice, getRetentionPct, getRiskBand } from "./telemetry";
 
 describe("telemetry", () => {
   it("counts compromised mission days", () => {
@@ -49,5 +49,17 @@ describe("telemetry", () => {
     });
     const advice = getNextActionAdvice(snapshot, 0, 0, 100);
     expect(advice.id).toBe("PROGRESS");
+  });
+
+  it("maps percentages to risk bands", () => {
+    expect(getRiskBand(-1)).toBe("LOW");
+    expect(getRiskBand(0)).toBe("LOW");
+    expect(getRiskBand(24)).toBe("LOW");
+    expect(getRiskBand(25)).toBe("MODERATE");
+    expect(getRiskBand(49)).toBe("MODERATE");
+    expect(getRiskBand(50)).toBe("HIGH");
+    expect(getRiskBand(74)).toBe("HIGH");
+    expect(getRiskBand(75)).toBe("CRITICAL");
+    expect(getRiskBand(100)).toBe("CRITICAL");
   });
 });

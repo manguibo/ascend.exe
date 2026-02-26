@@ -11,8 +11,11 @@ describe("buildPerformanceView", () => {
     expect(view.currentRank.id).toBe("OPERATOR");
     expect(view.directiveTier.tier).toBe("TIER II");
     expect(view.disciplineRiskPct).toBeGreaterThanOrEqual(0);
+    expect(view.disciplineRiskBand).toBeTruthy();
     expect(view.decayPressurePct).toBeGreaterThanOrEqual(0);
+    expect(view.decayPressureBand).toBeTruthy();
     expect(view.retentionPct).toBeGreaterThanOrEqual(0);
+    expect(view.retentionBand).toBeTruthy();
     expect(view.nextAction.id).toBeTruthy();
   });
 
@@ -33,6 +36,7 @@ describe("buildPerformanceView", () => {
     expect(view.demotion.shouldDemote).toBe(true);
     expect(view.progressEvent).toBe("DEMOTION RISK");
     expect(view.nextAction.id).toBe("LOG_SESSION");
+    expect(view.decayPressureBand).toBe("CRITICAL");
   });
 
   it("returns stable progression signal when no promotion or demotion flags", () => {
@@ -51,5 +55,6 @@ describe("buildPerformanceView", () => {
 
     expect(view.progressEvent).toBe("RANK STABLE");
     expect(view.nextAction.id).toBe("PROGRESS");
+    expect(view.disciplineRiskBand).toBe("LOW");
   });
 });
