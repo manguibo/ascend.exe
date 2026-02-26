@@ -104,9 +104,13 @@ function parseNumber(value: unknown, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function parsePercent(value: unknown, fallback: number): number {
+function parseBoundedNumber(value: unknown, fallback: number, min: number, max: number): number {
   const parsed = parseNumber(value, fallback);
-  return Math.max(0, Math.min(100, parsed));
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function parsePercent(value: unknown, fallback: number): number {
+  return parseBoundedNumber(value, fallback, 0, 100);
 }
 
 function parseActivityCodename(value: unknown): string {
@@ -170,17 +174,17 @@ export function sanitizeSessionLogInput(rawValue: unknown): SessionLogInput {
     activityId: parseActivityId(raw.activityId),
     bodyTrainingProfile: parseBodyTrainingProfile(raw.bodyTrainingProfile),
     expectedCadence: parseCadence(raw.expectedCadence),
-    baseRate: parseNumber(raw.baseRate, defaultSessionLogInput.baseRate),
-    intensityMultiplier: parseNumber(raw.intensityMultiplier, defaultSessionLogInput.intensityMultiplier),
-    durationMultiplier: parseNumber(raw.durationMultiplier, defaultSessionLogInput.durationMultiplier),
-    outcomeMultiplier: parseNumber(raw.outcomeMultiplier, defaultSessionLogInput.outcomeMultiplier),
-    consistencyMultiplier: parseNumber(raw.consistencyMultiplier, defaultSessionLogInput.consistencyMultiplier),
-    totalXpBeforeSession: parseNumber(raw.totalXpBeforeSession, defaultSessionLogInput.totalXpBeforeSession),
-    inactiveDays: parseNumber(raw.inactiveDays, defaultSessionLogInput.inactiveDays),
-    decayRatePct: parseNumber(raw.decayRatePct, defaultSessionLogInput.decayRatePct),
-    levelStartXp: parseNumber(raw.levelStartXp, defaultSessionLogInput.levelStartXp),
-    bodyWeightKg: parseNumber(raw.bodyWeightKg, defaultSessionLogInput.bodyWeightKg),
-    targetWeightKg: parseNumber(raw.targetWeightKg, defaultSessionLogInput.targetWeightKg),
+    baseRate: parseBoundedNumber(raw.baseRate, defaultSessionLogInput.baseRate, 1, 10_000),
+    intensityMultiplier: parseBoundedNumber(raw.intensityMultiplier, defaultSessionLogInput.intensityMultiplier, 0, 3),
+    durationMultiplier: parseBoundedNumber(raw.durationMultiplier, defaultSessionLogInput.durationMultiplier, 0, 3),
+    outcomeMultiplier: parseBoundedNumber(raw.outcomeMultiplier, defaultSessionLogInput.outcomeMultiplier, 0, 2),
+    consistencyMultiplier: parseBoundedNumber(raw.consistencyMultiplier, defaultSessionLogInput.consistencyMultiplier, 0, 3),
+    totalXpBeforeSession: parseBoundedNumber(raw.totalXpBeforeSession, defaultSessionLogInput.totalXpBeforeSession, 0, 1_000_000_000),
+    inactiveDays: parseBoundedNumber(raw.inactiveDays, defaultSessionLogInput.inactiveDays, 0, 365),
+    decayRatePct: parseBoundedNumber(raw.decayRatePct, defaultSessionLogInput.decayRatePct, 0, 20),
+    levelStartXp: parseBoundedNumber(raw.levelStartXp, defaultSessionLogInput.levelStartXp, 0, 1_000_000_000),
+    bodyWeightKg: parseBoundedNumber(raw.bodyWeightKg, defaultSessionLogInput.bodyWeightKg, 20, 350),
+    targetWeightKg: parseBoundedNumber(raw.targetWeightKg, defaultSessionLogInput.targetWeightKg, 20, 350),
     dietAdherencePct: parsePercent(raw.dietAdherencePct, defaultSessionLogInput.dietAdherencePct),
     fitnessBaselinePct: parsePercent(raw.fitnessBaselinePct, defaultSessionLogInput.fitnessBaselinePct),
     recentDisciplineStates: parseRecentDisciplineStates(raw.recentDisciplineStates),

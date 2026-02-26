@@ -75,4 +75,32 @@ describe("sanitizeSessionLogInput", () => {
     expect(result.dietAdherencePct).toBe(100);
     expect(result.fitnessBaselinePct).toBe(0);
   });
+
+  it("clamps numeric fields to safe ranges", () => {
+    const result = sanitizeSessionLogInput({
+      baseRate: -10,
+      intensityMultiplier: 9,
+      durationMultiplier: -2,
+      outcomeMultiplier: 5,
+      consistencyMultiplier: 8,
+      totalXpBeforeSession: -400,
+      inactiveDays: 999,
+      decayRatePct: 73,
+      levelStartXp: -1,
+      bodyWeightKg: 4,
+      targetWeightKg: 999,
+    });
+
+    expect(result.baseRate).toBe(1);
+    expect(result.intensityMultiplier).toBe(3);
+    expect(result.durationMultiplier).toBe(0);
+    expect(result.outcomeMultiplier).toBe(2);
+    expect(result.consistencyMultiplier).toBe(3);
+    expect(result.totalXpBeforeSession).toBe(0);
+    expect(result.inactiveDays).toBe(365);
+    expect(result.decayRatePct).toBe(20);
+    expect(result.levelStartXp).toBe(0);
+    expect(result.bodyWeightKg).toBe(20);
+    expect(result.targetWeightKg).toBe(350);
+  });
 });
