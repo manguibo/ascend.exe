@@ -24,6 +24,15 @@ export type SessionHistorySummary = {
   disciplineTrend: "IMPROVING" | "DECLINING" | "STABLE";
 };
 
+export type RegionTrendDirection = "IMPROVING" | "DECLINING" | "STABLE";
+
+export type RegionTrend = {
+  regionId: string;
+  latestReadinessPct: number;
+  deltaPct: number;
+  direction: RegionTrendDirection;
+};
+
 type SessionHistoryRecord = {
   entries: SessionHistoryEntry[];
 };
@@ -237,6 +246,25 @@ export function buildSessionHistorySummary(entries: readonly SessionHistoryEntry
     xpDeltaFromPrevious: previous ? latest.totalXp - previous.totalXp : 0,
     disciplineTrend,
   };
+}
+
+export function buildRegionTrends(entries: readonly SessionHistoryEntry[]): readonly RegionTrend[] {
+  if (entries.length === 0) {
+    return [];
+  }
+
+  const latest = entries[entries.length - 1];
+  const previous = entries.length > 1 ? entries[entries.length - 2] : null;
+  const previousMap = previous?.regionReadiness ?? {};
+  const regionIds = Object.keys(latest.regionReadiness).sort((a, b) => a.localeCompare(b));
+
+  return regionIds.map((regionId) => {
+    const latestReadinessPct = clamp(Math.round(latest.regionReadiness[regionId] ?? 0), 0, 100);
+    const previousReadiness = clamp(Math.round(previousMap[regionId] ?? latestReadinessPct), 0, 100);
+    const deltaPct = latestReadinessPct - previousReadiness;
+    const direction: RegionTrendDirection = deltaPct > 0 ? "IMPROVING" : deltaPct < 0 ? "DECLINING" : "STABLE";
+    return { regionId, latestReadinessPct, deltaPct, direction };
+  });
 }
 
 export function subscribeSessionHistory(onStoreChange: () => void): () => void {

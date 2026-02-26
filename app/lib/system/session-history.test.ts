@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { appendSessionHistoryEntry, buildSessionHistorySummary, clearSessionHistory, loadSessionHistoryEntries } from "./session-history";
+import { appendSessionHistoryEntry, buildRegionTrends, buildSessionHistorySummary, clearSessionHistory, loadSessionHistoryEntries } from "./session-history";
 import { defaultSessionLogInput } from "./session-state";
 
 describe("session-history", () => {
@@ -112,5 +112,41 @@ describe("session-history", () => {
     expect(summary.latestTotalXp).toBe(1470);
     expect(summary.xpDeltaFromPrevious).toBe(180);
     expect(summary.disciplineTrend).toBe("IMPROVING");
+  });
+
+  it("builds region trends from latest and previous entries", () => {
+    const entries = [
+      {
+        id: "a",
+        timestampIso: "2026-01-01T00:00:00.000Z",
+        totalXp: 1000,
+        sessionXp: 100,
+        discipline: "STABLE",
+        activityCodename: "RUNNING",
+        profile: "CONDITIONING",
+        regionReadiness: { ARMS: 60, CORE: 50, QUADS: 70 },
+        developmentAvgPct: 55,
+      },
+      {
+        id: "b",
+        timestampIso: "2026-01-02T00:00:00.000Z",
+        totalXp: 1120,
+        sessionXp: 120,
+        discipline: "STABLE",
+        activityCodename: "RUNNING",
+        profile: "CONDITIONING",
+        regionReadiness: { ARMS: 64, CORE: 50, QUADS: 66 },
+        developmentAvgPct: 57,
+      },
+    ];
+
+    const trends = buildRegionTrends(entries);
+    expect(trends).toHaveLength(3);
+    expect(trends[0]?.regionId).toBe("ARMS");
+    expect(trends[0]?.direction).toBe("IMPROVING");
+    expect(trends[1]?.regionId).toBe("CORE");
+    expect(trends[1]?.direction).toBe("STABLE");
+    expect(trends[2]?.regionId).toBe("QUADS");
+    expect(trends[2]?.direction).toBe("DECLINING");
   });
 });
