@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { getRiskBand } from "@/lib/system/telemetry";
 import type { DisciplineState } from "@/lib/system/types";
 import { DisciplineHeatline } from "./discipline-heatline";
 import { RadialGauge } from "./radial-gauge";
@@ -28,7 +29,9 @@ export function SystemTelemetryPanel({
 }: SystemTelemetryPanelProps) {
   const readiness = Math.max(0, Math.min(100, Math.round(primaryValuePct)));
   const disciplineRisk = Math.max(0, Math.min(100, Math.round(disciplineRiskPct)));
+  const disciplineRiskBand = getRiskBand(disciplineRisk);
   const decayPressure = Math.max(0, Math.min(100, Math.round(decayPressurePct)));
+  const decayPressureBand = getRiskBand(decayPressure);
   const activeNodes = Math.max(1, Math.round((readiness / 100) * 12));
 
   return (
@@ -61,16 +64,26 @@ export function SystemTelemetryPanel({
           </div>
           <div className="grid gap-2 text-[10px] tracking-[0.15em] text-cyan-300 sm:grid-cols-3">
             <p className="border border-cyan-500/35 px-2 py-1">READINESS {readiness}%</p>
-            <p className="border border-[#4b2a78] px-2 py-1 text-[#c7acff]">CONSISTENCY RISK {disciplineRisk}%</p>
-            <p className="border border-[#7a2f35] px-2 py-1 text-[#ff8d97]">DECAY PRESSURE {decayPressure}%</p>
+            <p className="border border-[#4b2a78] px-2 py-1 text-[#c7acff]">CONSISTENCY RISK {disciplineRisk}% {disciplineRiskBand}</p>
+            <p className="border border-[#7a2f35] px-2 py-1 text-[#ff8d97]">DECAY PRESSURE {decayPressure}% {decayPressureBand}</p>
           </div>
         </div>
       ) : null}
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <div className="grid gap-3">
           <SignalMeter label={primaryLabel} value={primaryValuePct} hint={primaryHint} />
-          <SignalMeter label="CONSISTENCY RISK" value={disciplineRiskPct} tone="purple" hint="COMPROMISED DAYS IN LAST 7 DAYS" />
-          <SignalMeter label="DECAY PRESSURE" value={decayPressurePct} tone="red" hint="INACTIVE DAYS PAST GRACE WINDOW" />
+          <SignalMeter
+            label={`CONSISTENCY RISK (${disciplineRiskBand})`}
+            value={disciplineRiskPct}
+            tone={disciplineRiskBand === "HIGH" || disciplineRiskBand === "CRITICAL" ? "red" : "purple"}
+            hint="COMPROMISED DAYS IN LAST 7 DAYS"
+          />
+          <SignalMeter
+            label={`DECAY PRESSURE (${decayPressureBand})`}
+            value={decayPressurePct}
+            tone={decayPressureBand === "LOW" ? "cyan" : decayPressureBand === "MODERATE" ? "purple" : "red"}
+            hint="INACTIVE DAYS PAST GRACE WINDOW"
+          />
         </div>
         <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
           <RadialGauge label="READINESS" value={primaryValuePct} />

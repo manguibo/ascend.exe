@@ -2,7 +2,7 @@
 
 import { getDirectiveTierInfo } from "@/lib/directives/tier";
 import { getRankProgress } from "@/lib/ranks/progression";
-import { getDecayPressurePct, getRetentionPct } from "@/lib/system/telemetry";
+import { getDecayPressurePct, getRetentionPct, getRiskBand } from "@/lib/system/telemetry";
 import { useUiRailDensity } from "@/lib/system/use-ui-rail-density";
 import { useSystemSnapshot } from "@/lib/system/use-system-snapshot";
 import { MiniMeter } from "./mini-meter";
@@ -15,7 +15,9 @@ export function GlobalStatusRail() {
   const rank = rankProgress.currentRank;
   const directiveTier = getDirectiveTierInfo(snapshot.xp.totalXp);
   const decayPressurePct = getDecayPressurePct(snapshot.xp.inactiveDays, snapshot.xp.graceDays);
+  const decayPressureBand = getRiskBand(decayPressurePct);
   const retentionPct = getRetentionPct(snapshot.xp.totalXpBeforeDecay, snapshot.xp.totalXp);
+  const retentionRiskBand = getRiskBand(100 - retentionPct);
   const compact = density === "COMPACT";
 
   return (
@@ -26,13 +28,17 @@ export function GlobalStatusRail() {
         <StatusChip label="RANK" value={rank.id} />
         <StatusChip label="PLAN LEVEL" value={directiveTier.tier} />
         {!compact ? <MiniMeter label="RANK BAND" value={rankProgress.bandProgressPct} /> : null}
-        {!compact ? <MiniMeter label="XP RETENTION" value={retentionPct} /> : null}
+        {!compact ? <MiniMeter label={`XP RETENTION ${retentionRiskBand}`} value={retentionPct} /> : null}
         <StatusChip
           label="CONSISTENCY"
           value={snapshot.discipline}
           tone={snapshot.discipline === "COMPROMISED" ? "red" : snapshot.discipline === "DECLINING" ? "purple" : "default"}
         />
-        <StatusChip label="DECAY PRESSURE" value={`${decayPressurePct}%`} tone={decayPressurePct >= 60 ? "red" : decayPressurePct >= 25 ? "purple" : "default"} />
+        <StatusChip
+          label="DECAY PRESSURE"
+          value={`${decayPressurePct}% ${decayPressureBand}`}
+          tone={decayPressureBand === "CRITICAL" || decayPressureBand === "HIGH" ? "red" : decayPressureBand === "MODERATE" ? "purple" : "default"}
+        />
       </div>
       {!compact ? (
         <p className="mx-auto mt-2 w-full max-w-6xl font-mono text-[10px] tracking-[0.14em] text-cyan-500/85">

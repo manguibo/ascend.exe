@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 
 type SignalMeterTone = "cyan" | "purple" | "red";
 
@@ -18,7 +18,6 @@ const toneClass: Record<SignalMeterTone, string> = {
 };
 
 export function SignalMeter({ label, value, hint, tone = "cyan" }: SignalMeterProps) {
-  const reduceMotion = useReducedMotion();
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
 
   return (
@@ -30,7 +29,7 @@ export function SignalMeter({ label, value, hint, tone = "cyan" }: SignalMeterPr
       <div className="h-2 border border-cyan-500/40 bg-black">
         <motion.div
           className={`h-full ${toneClass[tone]}`}
-          initial={reduceMotion ? false : { scaleX: 0 }}
+          initial={false}
           animate={{ scaleX: clamped / 100 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
           style={{ transformOrigin: "left center" }}
