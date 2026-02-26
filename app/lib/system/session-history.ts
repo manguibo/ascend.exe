@@ -25,6 +25,72 @@ const MAX_ENTRIES = 60;
 let cachedSerialized: string | null | undefined;
 let cachedRecord: SessionHistoryRecord = { entries: [] };
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function parseNumber(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return clamp(parsed, min, max);
+}
+
+function parseText(value: unknown, fallback: string, maxLength: number): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed.slice(0, maxLength) : fallback;
+}
+
+function parseTimestampIso(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? value : null;
+}
+
+function parseRegionReadiness(value: unknown): Record<string, number> {
+  if (typeof value !== "object" || value === null) {
+    return {};
+  }
+
+  const raw = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.entries(raw)
+      .filter(([key]) => typeof key === "string" && key.length > 0 && key.length <= 24)
+      .map(([key, metric]) => [key, parseNumber(metric, 0, 0, 100)]),
+  );
+}
+
+function sanitizeHistoryEntry(value: unknown, index: number): SessionHistoryEntry | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const raw = value as Partial<SessionHistoryEntry>;
+  const timestampIso = parseTimestampIso(raw.timestampIso);
+  if (!timestampIso) {
+    return null;
+  }
+
+  const fallbackId = `${timestampIso}-${String(index + 1).padStart(2, "0")}`;
+  return {
+    id: parseText(raw.id, fallbackId, 64),
+    timestampIso,
+    totalXp: parseNumber(raw.totalXp, 0, 0, 1_000_000_000),
+    sessionXp: parseNumber(raw.sessionXp, 0, 0, 1_000_000),
+    discipline: parseText(raw.discipline, "STABLE", 24),
+    activityCodename: parseText(raw.activityCodename, "UNKNOWN", 64),
+    profile: parseText(raw.profile, "FULL", 24),
+    regionReadiness: parseRegionReadiness(raw.regionReadiness),
+    developmentAvgPct: parseNumber(raw.developmentAvgPct, 0, 0, 100),
+  };
+}
+
 function parseRecord(value: unknown): SessionHistoryRecord {
   if (typeof value !== "object" || value === null) {
     return { entries: [] };
@@ -35,13 +101,14 @@ function parseRecord(value: unknown): SessionHistoryRecord {
     return { entries: [] };
   }
 
-  const entries = raw.entries
-    .filter((entry) => typeof entry === "object" && entry !== null)
-    .map((entry) => entry as SessionHistoryEntry)
-    .filter((entry) => typeof entry.id === "string" && typeof entry.timestampIso === "string")
-    .slice(-MAX_ENTRIES);
+  const entries = raw.entries.map((entry, index) => sanitizeHistoryEntry(entry, index)).filter((entry) => entry !== null).slice(-MAX_ENTRIES);
 
-  return { entries };
+  return { entries: entries as SessionHistoryEntry[] };
+}
+
+function buildEntryId(existingEntries: readonly SessionHistoryEntry[], timestampIso: string): string {
+  const sequence = existingEntries.reduce((count, entry) => (entry.timestampIso === timestampIso ? count + 1 : count), 0) + 1;
+  return `${timestampIso}-${String(sequence).padStart(2, "0")}`;
 }
 
 function getRecordSnapshot(): SessionHistoryRecord {
@@ -94,8 +161,9 @@ export function appendSessionHistoryEntry(input: SessionLogInput): SessionHistor
   const developmentAvgPct = Math.round((body.development.compositionPct + body.development.strengthPct + body.development.conditioningPct) / 3);
   const timestampIso = new Date().toISOString();
 
+  const current = getRecordSnapshot();
   const entry: SessionHistoryEntry = {
-    id: `${timestampIso}-${Math.random().toString(36).slice(2, 8)}`,
+    id: buildEntryId(current.entries, timestampIso),
     timestampIso,
     totalXp: snapshot.xp.totalXp,
     sessionXp: snapshot.xp.sessionXp,
@@ -106,7 +174,6 @@ export function appendSessionHistoryEntry(input: SessionLogInput): SessionHistor
     developmentAvgPct,
   };
 
-  const current = getRecordSnapshot();
   const next = { entries: [...current.entries, entry].slice(-MAX_ENTRIES) };
   saveRecord(next);
   return entry;
