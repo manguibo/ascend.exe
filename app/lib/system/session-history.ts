@@ -14,6 +14,16 @@ export type SessionHistoryEntry = {
   developmentAvgPct: number;
 };
 
+export type SessionHistorySummary = {
+  entryCount: number;
+  averageSessionXp: number;
+  averageDevelopmentPct: number;
+  latestTotalXp: number;
+  latestTimestampIso: string | null;
+  xpDeltaFromPrevious: number;
+  disciplineTrend: "IMPROVING" | "DECLINING" | "STABLE";
+};
+
 type SessionHistoryRecord = {
   entries: SessionHistoryEntry[];
 };
@@ -181,6 +191,52 @@ export function appendSessionHistoryEntry(input: SessionLogInput): SessionHistor
 
 export function clearSessionHistory(): void {
   saveRecord({ entries: [] });
+}
+
+function getDisciplineScore(value: string): number {
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "OPTIMAL") return 3;
+  if (normalized === "STABLE") return 2;
+  if (normalized === "DECLINING") return 1;
+  if (normalized === "COMPROMISED") return 0;
+  return 1;
+}
+
+export function buildSessionHistorySummary(entries: readonly SessionHistoryEntry[]): SessionHistorySummary {
+  if (entries.length === 0) {
+    return {
+      entryCount: 0,
+      averageSessionXp: 0,
+      averageDevelopmentPct: 0,
+      latestTotalXp: 0,
+      latestTimestampIso: null,
+      xpDeltaFromPrevious: 0,
+      disciplineTrend: "STABLE",
+    };
+  }
+
+  const latest = entries[entries.length - 1];
+  const previous = entries.length > 1 ? entries[entries.length - 2] : null;
+  const totalSessionXp = entries.reduce((sum, entry) => sum + entry.sessionXp, 0);
+  const totalDevelopment = entries.reduce((sum, entry) => sum + entry.developmentAvgPct, 0);
+  const half = Math.max(1, Math.floor(entries.length / 2));
+  const recent = entries.slice(-half);
+  const earlier = entries.slice(0, entries.length - half);
+  const recentScore = recent.reduce((sum, entry) => sum + getDisciplineScore(entry.discipline), 0) / recent.length;
+  const earlierScore =
+    earlier.length > 0 ? earlier.reduce((sum, entry) => sum + getDisciplineScore(entry.discipline), 0) / earlier.length : recentScore;
+  const delta = recentScore - earlierScore;
+  const disciplineTrend: SessionHistorySummary["disciplineTrend"] = delta > 0.18 ? "IMPROVING" : delta < -0.18 ? "DECLINING" : "STABLE";
+
+  return {
+    entryCount: entries.length,
+    averageSessionXp: Math.round(totalSessionXp / entries.length),
+    averageDevelopmentPct: Math.round(totalDevelopment / entries.length),
+    latestTotalXp: latest.totalXp,
+    latestTimestampIso: latest.timestampIso,
+    xpDeltaFromPrevious: previous ? latest.totalXp - previous.totalXp : 0,
+    disciplineTrend,
+  };
 }
 
 export function subscribeSessionHistory(onStoreChange: () => void): () => void {

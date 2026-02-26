@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { appendSessionHistoryEntry, clearSessionHistory, loadSessionHistoryEntries } from "./session-history";
+import { appendSessionHistoryEntry, buildSessionHistorySummary, clearSessionHistory, loadSessionHistoryEntries } from "./session-history";
 import { defaultSessionLogInput } from "./session-state";
 
 describe("session-history", () => {
@@ -51,5 +51,66 @@ describe("session-history", () => {
     const entries = loadSessionHistoryEntries();
     expect(entries).toHaveLength(60);
     expect(entries[0]?.id.endsWith("-01")).toBe(true);
+  });
+
+  it("builds summary metrics and trend", () => {
+    const summaryEmpty = buildSessionHistorySummary([]);
+    expect(summaryEmpty.entryCount).toBe(0);
+    expect(summaryEmpty.disciplineTrend).toBe("STABLE");
+
+    const entries = [
+      {
+        id: "a",
+        timestampIso: "2026-01-01T00:00:00.000Z",
+        totalXp: 1000,
+        sessionXp: 100,
+        discipline: "COMPROMISED",
+        activityCodename: "RUNNING",
+        profile: "CONDITIONING",
+        regionReadiness: { CHEST: 50 },
+        developmentAvgPct: 48,
+      },
+      {
+        id: "b",
+        timestampIso: "2026-01-02T00:00:00.000Z",
+        totalXp: 1130,
+        sessionXp: 130,
+        discipline: "DECLINING",
+        activityCodename: "RUNNING",
+        profile: "CONDITIONING",
+        regionReadiness: { CHEST: 54 },
+        developmentAvgPct: 52,
+      },
+      {
+        id: "c",
+        timestampIso: "2026-01-03T00:00:00.000Z",
+        totalXp: 1290,
+        sessionXp: 160,
+        discipline: "STABLE",
+        activityCodename: "RUNNING",
+        profile: "CONDITIONING",
+        regionReadiness: { CHEST: 58 },
+        developmentAvgPct: 60,
+      },
+      {
+        id: "d",
+        timestampIso: "2026-01-04T00:00:00.000Z",
+        totalXp: 1470,
+        sessionXp: 180,
+        discipline: "OPTIMAL",
+        activityCodename: "RUNNING",
+        profile: "CONDITIONING",
+        regionReadiness: { CHEST: 62 },
+        developmentAvgPct: 66,
+      },
+    ];
+
+    const summary = buildSessionHistorySummary(entries);
+    expect(summary.entryCount).toBe(4);
+    expect(summary.averageSessionXp).toBe(143);
+    expect(summary.averageDevelopmentPct).toBe(57);
+    expect(summary.latestTotalXp).toBe(1470);
+    expect(summary.xpDeltaFromPrevious).toBe(180);
+    expect(summary.disciplineTrend).toBe("IMPROVING");
   });
 });
