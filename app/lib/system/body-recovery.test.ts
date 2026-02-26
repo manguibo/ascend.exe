@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBodyRecoveryView } from "./body-recovery";
+import { buildBodyRecoveryView, getAverageReadinessPct, getLowestReadinessRegion } from "./body-recovery";
 import { defaultSessionLogInput } from "./session-state";
 
 describe("buildBodyRecoveryView", () => {
@@ -76,5 +76,23 @@ describe("buildBodyRecoveryView", () => {
 
     expect(view.development.compositionPct).toBeGreaterThanOrEqual(70);
     expect(view.development.status).toBe("ADVANCING");
+  });
+
+  it("returns lowest readiness region and average readiness helpers", () => {
+    const view = buildBodyRecoveryView({
+      ...defaultSessionLogInput,
+      inactiveDays: 7,
+      dietAdherencePct: 40,
+      fitnessBaselinePct: 42,
+      recentDisciplineStates: ["DECLINING", "DECLINING", "DECLINING", "COMPROMISED", "COMPROMISED", "COMPROMISED", "COMPROMISED"],
+    });
+
+    const lowest = getLowestReadinessRegion(view);
+    const average = getAverageReadinessPct(view);
+
+    expect(lowest).not.toBeNull();
+    expect(average).toBeGreaterThanOrEqual(0);
+    expect(average).toBeLessThanOrEqual(100);
+    expect(lowest?.readinessPct).toBeLessThanOrEqual(average);
   });
 });

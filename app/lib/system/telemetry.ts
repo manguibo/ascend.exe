@@ -1,4 +1,11 @@
 import type { DisciplineState } from "./types";
+import type { SystemSnapshot } from "./types";
+
+export type NextActionAdvice = {
+  id: "LOG_SESSION" | "REBUILD_CONSISTENCY" | "PROTECT_XP" | "PROGRESS";
+  title: string;
+  detail: string;
+};
 
 export function getCompromisedDayCount(states: readonly DisciplineState[]): number {
   return states.filter((state) => state === "COMPROMISED").length;
@@ -29,4 +36,43 @@ export function getRetentionPct(preDecayTotalXp: number, postDecayTotalXp: numbe
 
   const raw = Math.round((postDecayTotalXp / preDecayTotalXp) * 100);
   return Math.max(0, Math.min(100, raw));
+}
+
+export function getNextActionAdvice(
+  snapshot: SystemSnapshot,
+  disciplineRiskPct: number,
+  decayPressurePct: number,
+  retentionPct: number,
+): NextActionAdvice {
+  const overdueDays = Math.max(0, snapshot.xp.inactiveDays - snapshot.xp.graceDays);
+
+  if (decayPressurePct >= 50 || overdueDays >= 3) {
+    return {
+      id: "LOG_SESSION",
+      title: "Log a session today",
+      detail: "Inactivity pressure is high. Completing a session now protects progress.",
+    };
+  }
+
+  if (disciplineRiskPct >= 43 || snapshot.discipline === "DECLINING" || snapshot.discipline === "COMPROMISED") {
+    return {
+      id: "REBUILD_CONSISTENCY",
+      title: "Rebuild consistency",
+      detail: "Use shorter sessions on schedule to stabilize your consistency state.",
+    };
+  }
+
+  if (snapshot.xp.decayDeltaXp > 0 && retentionPct < 98) {
+    return {
+      id: "PROTECT_XP",
+      title: "Protect retained XP",
+      detail: "You are taking decay loss. Keep cadence inside the grace window this week.",
+    };
+  }
+
+  return {
+    id: "PROGRESS",
+    title: "Progress training load",
+    detail: "Recovery signals are stable. Increase challenge gradually and keep frequency.",
+  };
 }

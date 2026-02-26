@@ -13,6 +13,7 @@ describe("buildPerformanceView", () => {
     expect(view.disciplineRiskPct).toBeGreaterThanOrEqual(0);
     expect(view.decayPressurePct).toBeGreaterThanOrEqual(0);
     expect(view.retentionPct).toBeGreaterThanOrEqual(0);
+    expect(view.nextAction.id).toBeTruthy();
   });
 
   it("reports demotion risk when both conditions are met", () => {
@@ -31,6 +32,7 @@ describe("buildPerformanceView", () => {
 
     expect(view.demotion.shouldDemote).toBe(true);
     expect(view.progressEvent).toBe("DEMOTION RISK");
+    expect(view.nextAction.id).toBe("LOG_SESSION");
   });
 
   it("returns stable progression signal when no promotion or demotion flags", () => {
@@ -48,5 +50,6 @@ describe("buildPerformanceView", () => {
     const view = buildPerformanceView(snapshot);
 
     expect(view.progressEvent).toBe("RANK STABLE");
+    expect(view.nextAction.id).toBe("PROGRESS");
   });
 });

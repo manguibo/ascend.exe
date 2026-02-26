@@ -9,7 +9,7 @@ import {
   type RankProgress,
   type RankDefinition,
 } from "../ranks/progression";
-import { getDecayPressurePct, getDisciplineRiskPct, getRetentionPct } from "./telemetry";
+import { getDecayPressurePct, getDisciplineRiskPct, getNextActionAdvice, getRetentionPct, type NextActionAdvice } from "./telemetry";
 import type { SystemSnapshot } from "./types";
 
 export type PerformanceView = {
@@ -21,6 +21,7 @@ export type PerformanceView = {
   retentionPct: number;
   demotion: DemotionStatus;
   progressEvent: ProgressEventState;
+  nextAction: NextActionAdvice;
 };
 
 export function buildPerformanceView(snapshot: SystemSnapshot): PerformanceView {
@@ -34,6 +35,7 @@ export function buildPerformanceView(snapshot: SystemSnapshot): PerformanceView 
   const disciplineRiskPct = getDisciplineRiskPct(snapshot.recentDisciplineStates);
   const decayPressurePct = getDecayPressurePct(snapshot.xp.inactiveDays, snapshot.xp.graceDays);
   const retentionPct = getRetentionPct(snapshot.xp.totalXpBeforeDecay, snapshot.xp.totalXp);
+  const nextAction = getNextActionAdvice(snapshot, disciplineRiskPct, decayPressurePct, retentionPct);
 
   return {
     rankProgress,
@@ -44,5 +46,6 @@ export function buildPerformanceView(snapshot: SystemSnapshot): PerformanceView 
     retentionPct,
     demotion,
     progressEvent,
+    nextAction,
   };
 }

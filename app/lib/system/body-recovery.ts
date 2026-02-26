@@ -212,3 +212,20 @@ export function buildBodyRegionInsights(view: BodyRecoveryView, historyEntries: 
     }),
   ) as Record<BodyRegionId, BodyRegionInsight>;
 }
+
+export function getLowestReadinessRegion(view: BodyRecoveryView): BodyRegionSignal | null {
+  if (view.regions.length === 0) {
+    return null;
+  }
+
+  return [...view.regions].sort((a, b) => a.readinessPct - b.readinessPct)[0];
+}
+
+export function getAverageReadinessPct(view: BodyRecoveryView): number {
+  if (view.regions.length === 0) {
+    return 0;
+  }
+
+  const total = view.regions.reduce((sum, region) => sum + region.readinessPct, 0);
+  return Math.round(total / view.regions.length);
+}
