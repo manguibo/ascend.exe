@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { DisciplineState } from "@/lib/system/types";
 
 type DisciplineHeatlineProps = {
@@ -15,8 +15,6 @@ const stateToneClass: Record<DisciplineState, string> = {
 };
 
 export function DisciplineHeatline({ states }: DisciplineHeatlineProps) {
-  const reduceMotion = useReducedMotion();
-
   return (
     <div className="border border-cyan-500/35 bg-black/80 p-3 font-mono">
       <p className="text-[10px] tracking-[0.15em] text-cyan-500/90">CONSISTENCY TREND</p>
@@ -25,7 +23,7 @@ export function DisciplineHeatline({ states }: DisciplineHeatlineProps) {
           <div key={`discipline-heat-${index + 1}`} className="grid gap-1">
             <motion.div
               className={`h-7 border border-cyan-500/25 ${stateToneClass[state]}`}
-              initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut", delay: index * 0.03 }}
             />

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { DisciplineState } from "@/lib/system/types";
 import { DisciplineHeatline } from "./discipline-heatline";
 import { RadialGauge } from "./radial-gauge";
@@ -26,7 +26,6 @@ export function SystemTelemetryPanel({
   disciplineStates,
   showMatrix = true,
 }: SystemTelemetryPanelProps) {
-  const reduceMotion = useReducedMotion();
   const readiness = Math.max(0, Math.min(100, Math.round(primaryValuePct)));
   const disciplineRisk = Math.max(0, Math.min(100, Math.round(disciplineRiskPct)));
   const decayPressure = Math.max(0, Math.min(100, Math.round(decayPressurePct)));
@@ -47,12 +46,12 @@ export function SystemTelemetryPanel({
                 <motion.div
                   key={`matrix-node-${index + 1}`}
                   className={`h-5 border ${active ? "border-cyan-300/70 bg-cyan-400/25" : "border-cyan-500/25 bg-black"}`}
-                  initial={reduceMotion ? false : { opacity: 0.45 }}
+                  initial={false}
                   animate={{ opacity: active ? 1 : 0.4 }}
                   transition={{
                     duration: 0.28,
-                    delay: reduceMotion ? 0 : index * 0.02,
-                    repeat: active && !reduceMotion ? Infinity : 0,
+                    delay: index * 0.02,
+                    repeat: active ? Infinity : 0,
                     repeatType: "reverse",
                     repeatDelay: 1.8,
                   }}
