@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 452" fill="none">
+  <defs>
+    <filter id="glow-cyan-b" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow-magenta-b" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <radialGradient id="body-haze-b" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#00e5ff" stop-opacity=".22"/>
+      <stop offset="100%" stop-color="#00e5ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <ellipse cx="110" cy="202" rx="78" ry="174" fill="url(#body-haze-b)"/>
+
+  <g filter="url(#glow-cyan-b)" stroke="#4cecff" stroke-opacity=".9" stroke-width="1.15" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="110" cy="24" r="13"/>
+    <path d="M104 37c2 3 10 3 12 0"/>
+    <path d="M108 37h4v8h-4z"/>
+
+    <path d="M110 45c-17 0-33 9-42 24-9 14-13 32-12 58 1 36 10 70 23 99 9 19 12 35 13 56 1 24-2 57-7 95h11c4-31 6-60 7-85h7c1 25 3 54 7 85h11c-5-38-8-71-7-95 1-21 4-37 13-56 13-29 22-63 23-99 1-26-3-44-12-58-9-15-25-24-42-24z"/>
+
+    <path d="M68 72c-12 11-22 31-27 57-3 14-3 29 0 42 3 12 8 19 16 19 8-23 12-47 13-73 1-17 0-31-2-45z"/>
+    <path d="M152 72c12 11 22 31 27 57 3 14 3 29 0 42-3 12-8 19-16 19-8-23-12-47-13-73-1-17 0-31 2-45z"/>
+    <path d="M50 191c5 0 9 5 9 12s-4 12-9 12-8-5-8-12 3-12 8-12z"/>
+    <path d="M170 191c5 0 8 5 8 12s-3 12-8 12-9-5-9-12 4-12 9-12z"/>
+
+    <path d="M94 277c-3 33-6 69-8 102h10c2-30 4-58 6-83-4-5-7-11-8-19z"/>
+    <path d="M126 277c-1 8-4 14-8 19 2 25 4 53 6 83h10c-2-33-5-69-8-102z"/>
+    <path d="M86 379h10l-2 61h-12zM124 379h10l2 61h-12z"/>
+    <path d="M79 440h15l-3 9H77zM126 440h15l3 9h-14z"/>
+  </g>
+
+  <g filter="url(#glow-magenta-b)" stroke="#ff6be4" stroke-opacity=".85" stroke-width="1">
+    <path d="M80 89c10-7 50-7 60 0"/>
+    <path d="M82 122c9-6 47-6 56 0"/>
+    <path d="M86 153c8-6 40-6 48 0"/>
+    <path d="M90 186c8-5 32-5 40 0"/>
+    <path d="M93 218c7-4 27-4 34 0"/>
+    <path d="M110 45v236"/>
+    <path d="M100 275c-2 30-4 63-5 95M120 275c2 30 4 63 5 95"/>
+    <path d="M70 142c-8 5-13 12-16 22M150 142c8 5 13 12 16 22"/>
+    <path d="M110 84c0 0-11 20-11 35 0 11 8 23 6 35-2 13-8 24-7 37 2 15 8 28 9 43"/>
+    <path d="M110 84c0 0 11 20 11 35 0 11-8 23-6 35 2 13 8 24 7 37-2 15-8 28-9 43"/>
+  </g>
+
+  <g filter="url(#glow-magenta-b)" fill="#ff6be4">
+    <circle cx="110" cy="90" r="1.8"/>
+    <circle cx="96" cy="126" r="1.6"/>
+    <circle cx="124" cy="132" r="1.6"/>
+    <circle cx="90" cy="162" r="1.6"/>
+    <circle cx="130" cy="170" r="1.6"/>
+    <circle cx="110" cy="210" r="2"/>
+    <circle cx="98" cy="248" r="1.6"/>
+    <circle cx="122" cy="252" r="1.6"/>
+    <circle cx="104" cy="300" r="1.5"/>
+    <circle cx="116" cy="306" r="1.5"/>
+    <circle cx="96" cy="340" r="1.4"/>
+    <circle cx="124" cy="348" r="1.4"/>
+    <circle cx="88" cy="384" r="1.4"/>
+    <circle cx="132" cy="386" r="1.4"/>
+    <circle cx="50" cy="204" r="1.7"/>
+    <circle cx="170" cy="204" r="1.7"/>
+  </g>
+</svg>
