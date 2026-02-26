@@ -24,30 +24,9 @@ const disciplineToneClass: Record<DisciplineState, string> = {
 export default function Home() {
   const { snapshot, input, setInput } = useSystemSnapshot();
   const { entries: sessionHistory } = useSessionHistory();
-  const { rankProgress, currentRank, directiveTier, progressEvent, disciplineRiskPct, decayPressurePct } = usePerformanceView(snapshot);
+  const { rankProgress, currentRank, directiveTier, progressEvent, disciplineRiskPct, decayPressurePct, nextAction } = usePerformanceView(snapshot);
   const bodyRecoveryView = buildBodyRecoveryView(input);
   const bodyInsights = buildBodyRegionInsights(bodyRecoveryView, sessionHistory);
-  const lowestReadinessRegion = [...bodyRecoveryView.regions].sort((a, b) => a.readinessPct - b.readinessPct)[0];
-  const nextAction =
-    decayPressurePct >= 50
-      ? {
-          title: "Log a session today",
-          detail: "Inactivity pressure is high. A session today protects your XP and momentum.",
-        }
-      : snapshot.discipline === "COMPROMISED" || disciplineRiskPct >= 50
-        ? {
-            title: "Rebuild consistency this week",
-            detail: "Complete short sessions on schedule to move consistency back to a stable state.",
-          }
-        : lowestReadinessRegion && lowestReadinessRegion.readinessPct < 67
-          ? {
-              title: `Recover ${lowestReadinessRegion.label.toLowerCase()}`,
-              detail: `This is your lowest readiness area at ${lowestReadinessRegion.readinessPct}%. Reduce load and prioritize recovery.`,
-            }
-          : {
-              title: "Push progression safely",
-              detail: "Readiness is stable. Keep frequency consistent and increase challenge gradually.",
-            };
 
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
