@@ -20,7 +20,6 @@ export type SessionLogInput = {
   levelStartXp: number;
   bodyWeightKg: number;
   targetWeightKg: number;
-  dietAdherencePct: number;
   fitnessBaselinePct: number;
   recentDisciplineStates: DisciplineState[];
 };
@@ -44,7 +43,6 @@ export const defaultSessionLogInput: SessionLogInput = {
   levelStartXp: 12000,
   bodyWeightKg: 82,
   targetWeightKg: 80,
-  dietAdherencePct: 72,
   fitnessBaselinePct: 66,
   recentDisciplineStates: ["OPTIMAL", "STABLE", "STABLE", "DECLINING", "DECLINING", "DECLINING", "DECLINING"],
 };
@@ -62,7 +60,6 @@ type SessionLogField = {
     | "recentDisciplineStates"
     | "bodyWeightKg"
     | "targetWeightKg"
-    | "dietAdherencePct"
     | "fitnessBaselinePct"
   >;
   label: string;
@@ -70,7 +67,7 @@ type SessionLogField = {
 };
 
 type BodySignalField = {
-  key: "bodyWeightKg" | "targetWeightKg" | "dietAdherencePct" | "fitnessBaselinePct";
+  key: "bodyWeightKg" | "targetWeightKg" | "fitnessBaselinePct";
   label: string;
   step?: string;
 };
@@ -90,7 +87,6 @@ export const sessionLogFields: readonly SessionLogField[] = [
 export const bodySignalFields: readonly BodySignalField[] = [
   { key: "bodyWeightKg", label: "BODY WEIGHT (KG)", step: "0.1" },
   { key: "targetWeightKg", label: "TARGET WEIGHT (KG)", step: "0.1" },
-  { key: "dietAdherencePct", label: "DIET ADHERENCE (%)", step: "1" },
   { key: "fitnessBaselinePct", label: "FITNESS BASELINE (%)", step: "1" },
 ];
 
@@ -185,7 +181,6 @@ export function sanitizeSessionLogInput(rawValue: unknown): SessionLogInput {
     levelStartXp: parseBoundedNumber(raw.levelStartXp, defaultSessionLogInput.levelStartXp, 0, 1_000_000_000),
     bodyWeightKg: parseBoundedNumber(raw.bodyWeightKg, defaultSessionLogInput.bodyWeightKg, 20, 350),
     targetWeightKg: parseBoundedNumber(raw.targetWeightKg, defaultSessionLogInput.targetWeightKg, 20, 350),
-    dietAdherencePct: parsePercent(raw.dietAdherencePct, defaultSessionLogInput.dietAdherencePct),
     fitnessBaselinePct: parsePercent(raw.fitnessBaselinePct, defaultSessionLogInput.fitnessBaselinePct),
     recentDisciplineStates: parseRecentDisciplineStates(raw.recentDisciplineStates),
   };

@@ -180,7 +180,7 @@ export default function LogPage() {
                   </label>
                 ))}
               </form>
-              <p className="mt-3 text-xs text-cyan-300/80">DIET/FITNESS VALUES ARE 0-100. BODY MAP READINESS UPDATES IN DASHBOARD.</p>
+              <p className="mt-3 text-xs text-cyan-300/80">FITNESS BASELINE IS 0-100. BODY MAP READINESS UPDATES IN DASHBOARD.</p>
             </CollapsiblePanel>
 
             <CollapsiblePanel panelId="log-discipline-history" title="CONSISTENCY HISTORY" defaultOpen={false}>

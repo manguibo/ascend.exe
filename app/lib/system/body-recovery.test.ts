@@ -53,7 +53,6 @@ describe("buildBodyRecoveryView", () => {
       ...defaultSessionLogInput,
       recentDisciplineStates: ["COMPROMISED", "COMPROMISED", "COMPROMISED", "COMPROMISED", "COMPROMISED", "COMPROMISED", "COMPROMISED"],
       inactiveDays: 8,
-      dietAdherencePct: 30,
       fitnessBaselinePct: 28,
       bodyWeightKg: 94,
       targetWeightKg: 80,
@@ -63,10 +62,9 @@ describe("buildBodyRecoveryView", () => {
     expect(view.development.status).toBe("DEGRADED");
   });
 
-  it("improves development status with higher diet and fitness signals", () => {
+  it("improves development status with higher fitness signal", () => {
     const view = buildBodyRecoveryView({
       ...defaultSessionLogInput,
-      dietAdherencePct: 92,
       fitnessBaselinePct: 88,
       bodyWeightKg: 80.5,
       targetWeightKg: 80,
@@ -82,7 +80,6 @@ describe("buildBodyRecoveryView", () => {
     const view = buildBodyRecoveryView({
       ...defaultSessionLogInput,
       inactiveDays: 7,
-      dietAdherencePct: 40,
       fitnessBaselinePct: 42,
       recentDisciplineStates: ["DECLINING", "DECLINING", "DECLINING", "COMPROMISED", "COMPROMISED", "COMPROMISED", "COMPROMISED"],
     });

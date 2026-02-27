@@ -41,7 +41,6 @@ describe("applySessionProfile", () => {
       levelStartXp: 15000,
       bodyWeightKg: 86,
       targetWeightKg: 79,
-      dietAdherencePct: 41,
       fitnessBaselinePct: 52,
       recentDisciplineStates: ["COMPROMISED", "COMPROMISED", "STABLE", "STABLE", "STABLE", "DECLINING", "DECLINING"],
       intensityMultiplier: 1.9,
@@ -63,7 +62,6 @@ describe("applySessionProfile", () => {
     expect(next.levelStartXp).toBe(15000);
     expect(next.bodyWeightKg).toBe(86);
     expect(next.targetWeightKg).toBe(79);
-    expect(next.dietAdherencePct).toBe(41);
     expect(next.fitnessBaselinePct).toBe(52);
     expect(next.recentDisciplineStates).toEqual(current.recentDisciplineStates);
   });

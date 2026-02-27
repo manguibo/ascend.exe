@@ -38,7 +38,6 @@ export function SystemOnboarding() {
   const [bodyWeightKg, setBodyWeightKg] = useState(input.bodyWeightKg);
   const [targetWeightKg, setTargetWeightKg] = useState(input.targetWeightKg);
   const [fitnessBaselinePct, setFitnessBaselinePct] = useState(input.fitnessBaselinePct);
-  const [dietAdherencePct, setDietAdherencePct] = useState(input.dietAdherencePct);
   const [expectedCadence, setExpectedCadence] = useState(input.expectedCadence);
   const [goal, setGoal] = useState<OnboardingGoalId>(initialProfile?.goal ?? "GENERAL_FITNESS");
   const [search, setSearch] = useState("");
@@ -95,7 +94,6 @@ export function SystemOnboarding() {
       bodyWeightKg: clamp(bodyWeightKg, 20, 350),
       targetWeightKg: clamp(targetWeightKg, 20, 350),
       fitnessBaselinePct: clamp(fitnessBaselinePct, 0, 100),
-      dietAdherencePct: clamp(dietAdherencePct, 0, 100),
       expectedCadence,
       activityId: primary.id,
       primaryActivityCodename: primary.codename,
@@ -229,16 +227,6 @@ export function SystemOnboarding() {
                             className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-300"
                           />
                         </label>
-                        <label className="grid gap-1">
-                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">DIET ADHERENCE (%)</span>
-                          <input
-                            type="number"
-                            step="1"
-                            value={dietAdherencePct}
-                            onChange={(event) => setDietAdherencePct(Number(event.target.value) || 0)}
-                            className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-300"
-                          />
-                        </label>
                         <label className="grid gap-1 sm:col-span-2">
                           <span className="text-[10px] tracking-[0.16em] text-cyan-500">WORKOUT FREQUENCY</span>
                           <select
@@ -331,7 +319,6 @@ export function SystemOnboarding() {
                           <p className="border border-cyan-500/25 px-3 py-2">WEIGHT {clamp(bodyWeightKg, 20, 350)} KG</p>
                           <p className="border border-cyan-500/25 px-3 py-2">TARGET {clamp(targetWeightKg, 20, 350)} KG</p>
                           <p className="border border-cyan-500/25 px-3 py-2">FITNESS {clamp(fitnessBaselinePct, 0, 100)}%</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">DIET {clamp(dietAdherencePct, 0, 100)}%</p>
                           <p className="border border-cyan-500/25 px-3 py-2">GOAL {goal.replaceAll("_", " ")}</p>
                           <p className="border border-cyan-500/25 px-3 py-2">FREQUENCY {expectedCadence}</p>
                           <p className="border border-cyan-500/25 px-3 py-2 sm:col-span-2">

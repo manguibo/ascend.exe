@@ -66,14 +66,12 @@ describe("sanitizeSessionLogInput", () => {
     ]);
   });
 
-  it("clamps body signal percentages to 0-100", () => {
+  it("clamps fitness baseline to 0-100", () => {
     const result = sanitizeSessionLogInput({
-      dietAdherencePct: 140,
-      fitnessBaselinePct: -20,
+      fitnessBaselinePct: 140,
     });
 
-    expect(result.dietAdherencePct).toBe(100);
-    expect(result.fitnessBaselinePct).toBe(0);
+    expect(result.fitnessBaselinePct).toBe(100);
   });
 
   it("clamps numeric fields to safe ranges", () => {

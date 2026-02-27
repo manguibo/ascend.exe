@@ -66,7 +66,6 @@ export function resetSessionInputToStandard(current: SessionLogInput): SessionLo
     levelStartXp: current.levelStartXp,
     bodyWeightKg: current.bodyWeightKg,
     targetWeightKg: current.targetWeightKg,
-    dietAdherencePct: current.dietAdherencePct,
     fitnessBaselinePct: current.fitnessBaselinePct,
   };
 }

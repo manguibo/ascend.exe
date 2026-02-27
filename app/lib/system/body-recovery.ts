@@ -125,8 +125,7 @@ function getRecoveryCapacity(input: SessionLogInput): number {
   const graceDays = getGraceDays(input.expectedCadence);
   const overInactive = Math.max(0, input.inactiveDays - graceDays);
   return (
-    input.dietAdherencePct * 0.4 +
-    input.fitnessBaselinePct * 0.25 +
+    input.fitnessBaselinePct * 0.52 +
     disciplineRecoveryBonus[discipline] +
     Math.min(input.inactiveDays, 2) * 4 -
     overInactive * 6
@@ -158,7 +157,7 @@ export function buildBodyRecoveryView(input: SessionLogInput): BodyRecoveryView 
   const overInactive = Math.max(0, input.inactiveDays - graceDays);
   const weightDeltaKg = round((input.bodyWeightKg - input.targetWeightKg) * 10) / 10;
   const compositionPct = round(
-    clamp(58 + input.dietAdherencePct * 0.32 + input.fitnessBaselinePct * 0.18 - Math.abs(weightDeltaKg) * 4 - overInactive * 5, 0, 100),
+    clamp(56 + input.fitnessBaselinePct * 0.42 + input.consistencyMultiplier * 8 - Math.abs(weightDeltaKg) * 4 - overInactive * 5, 0, 100),
   );
   const strengthPct = round(
     clamp(
@@ -175,7 +174,7 @@ export function buildBodyRecoveryView(input: SessionLogInput): BodyRecoveryView 
   );
   const conditioningPct = round(
     clamp(
-      32 + input.outcomeMultiplier * 26 + input.consistencyMultiplier * 20 + input.dietAdherencePct * 0.2 + input.fitnessBaselinePct * 0.24 - overInactive * 6,
+      32 + input.outcomeMultiplier * 26 + input.consistencyMultiplier * 20 + input.fitnessBaselinePct * 0.34 - overInactive * 6,
       0,
       100,
     ),

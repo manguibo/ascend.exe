@@ -24,10 +24,10 @@ export function GlobalQuickActions() {
     return `XP ${snapshot.xp.totalXp} | ACTIVITY ${snapshot.activity.codename} | WEIGHT ${input.bodyWeightKg} KG`;
   }, [snapshot.xp.totalXp, snapshot.activity.codename, input.bodyWeightKg]);
 
-  const setNumberField = (field: keyof Pick<SessionLogInput, "bodyWeightKg" | "targetWeightKg" | "dietAdherencePct" | "fitnessBaselinePct">, rawValue: string) => {
+  const setNumberField = (field: keyof Pick<SessionLogInput, "bodyWeightKg" | "targetWeightKg" | "fitnessBaselinePct">, rawValue: string) => {
     setInput((current) => {
       const parsed = parseNumber(rawValue, current[field]);
-      if (field === "dietAdherencePct" || field === "fitnessBaselinePct") {
+      if (field === "fitnessBaselinePct") {
         return { ...current, [field]: clamp(parsed, 0, 100) };
       }
       return { ...current, [field]: clamp(parsed, 0, 500) };
@@ -71,17 +71,6 @@ export function GlobalQuickActions() {
                     step="0.1"
                     value={input.targetWeightKg}
                     onChange={(event) => setNumberField("targetWeightKg", event.target.value)}
-                    className="border border-cyan-500/40 bg-black px-2 py-1.5 text-xs text-cyan-200 outline-none transition-colors focus:border-cyan-300"
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">DIET ADHERENCE (%)</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    step="1"
-                    value={input.dietAdherencePct}
-                    onChange={(event) => setNumberField("dietAdherencePct", event.target.value)}
                     className="border border-cyan-500/40 bg-black px-2 py-1.5 text-xs text-cyan-200 outline-none transition-colors focus:border-cyan-300"
                   />
                 </label>
