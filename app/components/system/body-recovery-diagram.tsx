@@ -14,6 +14,7 @@ import {
   type AvatarLandmarkId,
   type AvatarPhotoRatios,
 } from "@/lib/system/avatar-profile";
+import { buildAvatarRigGeometry } from "@/lib/system/avatar-rig";
 import type { SessionLogInput } from "@/lib/system/session-state";
 import { MicroMetricGrid } from "./micro-metric-grid";
 
@@ -52,6 +53,12 @@ const statusCalloutClass: Record<BodyRegionSignal["status"], string> = {
   READY: "fill-cyan-950/55 stroke-cyan-300/90",
   MONITOR: "fill-[#140c24]/75 stroke-[#c7acff]/90",
   RECOVER: "fill-[#20090c]/75 stroke-[#ff9aa4]/90",
+};
+
+const rigToneClass: Record<"shell" | "core" | "limb", string> = {
+  shell: "fill-transparent stroke-cyan-400/55",
+  core: "fill-transparent stroke-[#d1bbff]/65",
+  limb: "fill-transparent stroke-cyan-300/45",
 };
 
 const regionGeometry: readonly RegionGeometry[] = [
@@ -200,37 +207,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function buildAvatarShellPath(morph: ReturnType<typeof deriveAvatarMorphParams>): string {
-  const cx = 450;
-  const topY = 102;
-  const neckY = 130;
-  const shoulderY = 152;
-  const chestY = 208;
-  const waistY = 282;
-  const hipY = 330;
-  const kneeY = 432;
-  const ankleY = 502;
-  const shoulderHalf = 54 * morph.shoulderScale;
-  const chestHalf = 46 * ((morph.shoulderScale + morph.waistScale) / 2);
-  const waistHalf = 33 * morph.waistScale;
-  const hipHalf = 40 * morph.hipScale;
-  const kneeHalf = 22 * morph.legScale;
-  const ankleHalf = 12 * morph.legScale;
-
-  return [
-    `M ${cx - 16} ${topY}`,
-    `C ${cx - 16} ${neckY - 12}, ${cx + 16} ${neckY - 12}, ${cx + 16} ${topY}`,
-    `C ${cx + 18} ${neckY + 8}, ${cx + shoulderHalf} ${shoulderY - 8}, ${cx + shoulderHalf} ${shoulderY + 8}`,
-    `C ${cx + chestHalf} ${chestY - 6}, ${cx + waistHalf} ${waistY - 10}, ${cx + hipHalf} ${hipY}`,
-    `C ${cx + hipHalf - 5} ${hipY + 40}, ${cx + kneeHalf} ${kneeY}, ${cx + ankleHalf} ${ankleY}`,
-    `L ${cx - ankleHalf} ${ankleY}`,
-    `C ${cx - kneeHalf} ${kneeY}, ${cx - hipHalf + 5} ${hipY + 40}, ${cx - hipHalf} ${hipY}`,
-    `C ${cx - waistHalf} ${waistY - 10}, ${cx - chestHalf} ${chestY - 6}, ${cx - shoulderHalf} ${shoulderY + 8}`,
-    `C ${cx - shoulderHalf} ${shoulderY - 8}, ${cx - 18} ${neckY + 8}, ${cx - 16} ${topY}`,
-    "Z",
-  ].join(" ");
-}
-
 export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, input }: BodyRecoveryDiagramProps) {
   const [surface, setSurface] = useState<"FRONT" | "BACK">("FRONT");
   const [hoveredRegionId, setHoveredRegionId] = useState<BodyRegionSignal["id"] | null>(null);
@@ -264,7 +240,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, inp
   const [assetFallbackStage, setAssetFallbackStage] = useState<{ front: 0 | 1; back: 0 | 1 | 2 }>({ front: 0, back: 0 });
   const byId = new Map(view.regions.map((region) => [region.id, region]));
   const morph = useMemo(() => deriveAvatarMorphParams(input, view, photoRatios), [input, view, photoRatios]);
-  const avatarShellPath = useMemo(() => buildAvatarShellPath(morph), [morph]);
+  const rig = useMemo(() => buildAvatarRigGeometry(morph, surface), [morph, surface]);
   const baseWidthScale = clamp((morph.shoulderScale * 0.34 + morph.waistScale * 0.33 + morph.hipScale * 0.33) * 0.98, 0.72, 1.34);
   const baseHeightScale = clamp((morph.legScale * 0.52 + morph.torsoScale * 0.48) * 0.98, 0.76, 1.34);
   const baseTransform = `translate(${morph.postureLeanDeg * 0.8} 0) translate(450 282) scale(${baseWidthScale} ${baseHeightScale}) translate(-450 -282)`;
@@ -500,8 +476,17 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, inp
             />
             <circle cx="450" cy="254" r="120" fill="none" stroke="rgba(255,107,132,0.18)" strokeWidth="1" />
             <circle cx="450" cy="254" r="132" fill="none" stroke="rgba(0,229,255,0.16)" strokeWidth="1" strokeDasharray="3 4" />
-            <path d={avatarShellPath} fill="rgba(0,229,255,0.05)" stroke="rgba(120,230,255,0.52)" strokeWidth="1.3" />
-            <path d={avatarShellPath} fill="none" stroke="rgba(209,187,255,0.26)" strokeWidth="4" filter="url(#region-outline-glow)" />
+            <path d={rig.shellPath} fill="rgba(0,229,255,0.05)" stroke="rgba(120,230,255,0.52)" strokeWidth="1.3" />
+            <path d={rig.shellPath} fill="none" stroke="rgba(209,187,255,0.26)" strokeWidth="4" filter="url(#region-outline-glow)" />
+            {rig.segments.map((segment) => (
+              <path
+                key={`rig-segment-${segment.id}`}
+                d={segment.d}
+                className={rigToneClass[segment.tone]}
+                strokeWidth={segment.width}
+                filter="url(#region-outline-glow)"
+              />
+            ))}
 
             {regionGeometry.map((item, index) => {
               const region = byId.get(item.id);
