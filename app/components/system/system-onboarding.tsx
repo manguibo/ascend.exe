@@ -35,6 +35,7 @@ export function SystemOnboarding() {
   const [dismissed, setDismissed] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const initialProfile = useMemo(() => loadOnboardingProfile(), []);
+  const [heightCm, setHeightCm] = useState(input.heightCm);
   const [bodyWeightKg, setBodyWeightKg] = useState(input.bodyWeightKg);
   const [targetWeightKg, setTargetWeightKg] = useState(input.targetWeightKg);
   const [fitnessBaselinePct, setFitnessBaselinePct] = useState(input.fitnessBaselinePct);
@@ -62,13 +63,13 @@ export function SystemOnboarding() {
 
   const canAdvance = useMemo(() => {
     if (currentStep === "BODY") {
-      return bodyWeightKg > 0 && targetWeightKg > 0;
+      return heightCm > 0 && bodyWeightKg > 0 && targetWeightKg > 0;
     }
     if (currentStep === "ACTIVITY") {
       return selectedActivities.length > 0 && primaryActivityId.length > 0;
     }
     return true;
-  }, [bodyWeightKg, currentStep, primaryActivityId, selectedActivities.length, targetWeightKg]);
+  }, [bodyWeightKg, currentStep, heightCm, primaryActivityId, selectedActivities.length, targetWeightKg]);
 
   const toggleActivity = (activityId: string) => {
     setSelectedActivities((current) => {
@@ -91,6 +92,7 @@ export function SystemOnboarding() {
     const primary = getActivityDefinition(primaryActivityId || selectedActivities[0] || input.activityId);
     setInput((current) => ({
       ...current,
+      heightCm: clamp(heightCm, 120, 230),
       bodyWeightKg: clamp(bodyWeightKg, 20, 350),
       targetWeightKg: clamp(targetWeightKg, 20, 350),
       fitnessBaselinePct: clamp(fitnessBaselinePct, 0, 100),
@@ -197,6 +199,16 @@ export function SystemOnboarding() {
 
                     {currentStep === "BODY" ? (
                       <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="grid gap-1">
+                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">HEIGHT (CM)</span>
+                          <input
+                            type="number"
+                            step="1"
+                            value={heightCm}
+                            onChange={(event) => setHeightCm(Number(event.target.value) || 0)}
+                            className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-300"
+                          />
+                        </label>
                         <label className="grid gap-1">
                           <span className="text-[10px] tracking-[0.16em] text-cyan-500">CURRENT WEIGHT (KG)</span>
                           <input
@@ -316,6 +328,7 @@ export function SystemOnboarding() {
                         <p className="text-sm text-cyan-100">System profile ready.</p>
                         <p className="text-xs text-cyan-300/85">Review final startup configuration:</p>
                         <div className="grid gap-2 text-xs text-cyan-300/90 sm:grid-cols-2">
+                          <p className="border border-cyan-500/25 px-3 py-2">HEIGHT {clamp(heightCm, 120, 230)} CM</p>
                           <p className="border border-cyan-500/25 px-3 py-2">WEIGHT {clamp(bodyWeightKg, 20, 350)} KG</p>
                           <p className="border border-cyan-500/25 px-3 py-2">TARGET {clamp(targetWeightKg, 20, 350)} KG</p>
                           <p className="border border-cyan-500/25 px-3 py-2">FITNESS {clamp(fitnessBaselinePct, 0, 100)}%</p>

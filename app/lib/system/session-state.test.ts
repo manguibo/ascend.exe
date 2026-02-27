@@ -85,6 +85,7 @@ describe("sanitizeSessionLogInput", () => {
       inactiveDays: 999,
       decayRatePct: 73,
       levelStartXp: -1,
+      heightCm: 77,
       bodyWeightKg: 4,
       targetWeightKg: 999,
     });
@@ -98,6 +99,7 @@ describe("sanitizeSessionLogInput", () => {
     expect(result.inactiveDays).toBe(365);
     expect(result.decayRatePct).toBe(20);
     expect(result.levelStartXp).toBe(0);
+    expect(result.heightCm).toBe(120);
     expect(result.bodyWeightKg).toBe(20);
     expect(result.targetWeightKg).toBe(350);
   });

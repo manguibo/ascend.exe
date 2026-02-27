@@ -39,6 +39,7 @@ describe("applySessionProfile", () => {
       bodyTrainingProfile: "PULL",
       totalXpBeforeSession: 18000,
       levelStartXp: 15000,
+      heightCm: 183,
       bodyWeightKg: 86,
       targetWeightKg: 79,
       fitnessBaselinePct: 52,
@@ -60,6 +61,7 @@ describe("applySessionProfile", () => {
     expect(next.bodyTrainingProfile).toBe("PULL");
     expect(next.totalXpBeforeSession).toBe(18000);
     expect(next.levelStartXp).toBe(15000);
+    expect(next.heightCm).toBe(183);
     expect(next.bodyWeightKg).toBe(86);
     expect(next.targetWeightKg).toBe(79);
     expect(next.fitnessBaselinePct).toBe(52);

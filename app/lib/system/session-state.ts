@@ -18,6 +18,7 @@ export type SessionLogInput = {
   inactiveDays: number;
   decayRatePct: number;
   levelStartXp: number;
+  heightCm: number;
   bodyWeightKg: number;
   targetWeightKg: number;
   fitnessBaselinePct: number;
@@ -41,6 +42,7 @@ export const defaultSessionLogInput: SessionLogInput = {
   inactiveDays: 1,
   decayRatePct: 2,
   levelStartXp: 12000,
+  heightCm: 178,
   bodyWeightKg: 82,
   targetWeightKg: 80,
   fitnessBaselinePct: 66,
@@ -58,6 +60,7 @@ type SessionLogField = {
     | "bodyTrainingProfile"
     | "expectedCadence"
     | "recentDisciplineStates"
+    | "heightCm"
     | "bodyWeightKg"
     | "targetWeightKg"
     | "fitnessBaselinePct"
@@ -67,7 +70,7 @@ type SessionLogField = {
 };
 
 type BodySignalField = {
-  key: "bodyWeightKg" | "targetWeightKg" | "fitnessBaselinePct";
+  key: "heightCm" | "bodyWeightKg" | "targetWeightKg" | "fitnessBaselinePct";
   label: string;
   step?: string;
 };
@@ -85,6 +88,7 @@ export const sessionLogFields: readonly SessionLogField[] = [
 ];
 
 export const bodySignalFields: readonly BodySignalField[] = [
+  { key: "heightCm", label: "HEIGHT (CM)", step: "1" },
   { key: "bodyWeightKg", label: "BODY WEIGHT (KG)", step: "0.1" },
   { key: "targetWeightKg", label: "TARGET WEIGHT (KG)", step: "0.1" },
   { key: "fitnessBaselinePct", label: "FITNESS BASELINE (%)", step: "1" },
@@ -179,6 +183,7 @@ export function sanitizeSessionLogInput(rawValue: unknown): SessionLogInput {
     inactiveDays: parseBoundedNumber(raw.inactiveDays, defaultSessionLogInput.inactiveDays, 0, 365),
     decayRatePct: parseBoundedNumber(raw.decayRatePct, defaultSessionLogInput.decayRatePct, 0, 20),
     levelStartXp: parseBoundedNumber(raw.levelStartXp, defaultSessionLogInput.levelStartXp, 0, 1_000_000_000),
+    heightCm: parseBoundedNumber(raw.heightCm, defaultSessionLogInput.heightCm, 120, 230),
     bodyWeightKg: parseBoundedNumber(raw.bodyWeightKg, defaultSessionLogInput.bodyWeightKg, 20, 350),
     targetWeightKg: parseBoundedNumber(raw.targetWeightKg, defaultSessionLogInput.targetWeightKg, 20, 350),
     fitnessBaselinePct: parsePercent(raw.fitnessBaselinePct, defaultSessionLogInput.fitnessBaselinePct),

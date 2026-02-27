@@ -64,6 +64,7 @@ export function resetSessionInputToStandard(current: SessionLogInput): SessionLo
     recentDisciplineStates: [...current.recentDisciplineStates],
     totalXpBeforeSession: current.totalXpBeforeSession,
     levelStartXp: current.levelStartXp,
+    heightCm: current.heightCm,
     bodyWeightKg: current.bodyWeightKg,
     targetWeightKg: current.targetWeightKg,
     fitnessBaselinePct: current.fitnessBaselinePct,
