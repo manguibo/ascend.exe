@@ -96,7 +96,7 @@ export default function DashboardPage() {
             <DisciplineTimeline states={snapshot.recentDisciplineStates} />
 
             <CollapsiblePanel panelId="dashboard-body-recovery-map" title="BODY READINESS + DEVELOPMENT" defaultOpen={false}>
-              <BodyRecoveryDiagram view={bodyRecoveryView} insights={bodyInsights} />
+              <BodyRecoveryDiagram view={bodyRecoveryView} insights={bodyInsights} activityCodename={snapshot.activity.codename} />
             </CollapsiblePanel>
 
             <SystemTelemetryPanel

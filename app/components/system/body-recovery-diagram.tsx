@@ -8,6 +8,7 @@ import { MicroMetricGrid } from "./micro-metric-grid";
 type BodyRecoveryDiagramProps = {
   view: BodyRecoveryView;
   insights?: Record<string, BodyRegionInsight>;
+  activityCodename?: string;
 };
 
 type RegionGeometry = {
@@ -96,6 +97,49 @@ const backRegions: readonly BodyRegionSignal["id"][] = ["SHOULDERS", "BACK", "AR
 const CALIBRATION_STORAGE_KEY = "ascend.body.map.calibration.v1";
 const calibrationEnabled = process.env.NEXT_PUBLIC_ENABLE_CALIBRATION === "1";
 
+type RecoveryRoute = {
+  route: string;
+  rationale: string;
+  steps: readonly string[];
+};
+
+function buildRecoveryRoute(region: BodyRegionSignal, profile: BodyRecoveryView["profile"], activityCodename?: string): RecoveryRoute {
+  const context = activityCodename ? `for ${activityCodename}` : "for current activity";
+  if (region.status === "RECOVER" || (region.loadPct >= 75 && region.recoveryPct <= 60)) {
+    return {
+      route: "DELOAD + ACTIVE RECOVERY",
+      rationale: `${region.label} is under high stress ${context}. Priority is tissue recovery before progression.`,
+      steps: [
+        "Reduce direct loading for 24-48h.",
+        "Use light mobility and blood-flow work.",
+        "Sleep and hydration compliance at high priority.",
+      ],
+    };
+  }
+
+  if (region.status === "MONITOR" || region.loadPct >= 60) {
+    return {
+      route: "CONTROLLED LOAD + MONITORING",
+      rationale: `${region.label} is trainable but carrying medium stress ${context}. Progress with controlled volume.`,
+      steps: [
+        "Maintain moderate intensity and reduce failure sets.",
+        "Add mobility between sets for this region.",
+        "Recheck readiness trend after next logged session.",
+      ],
+    };
+  }
+
+  return {
+    route: "PROGRESSIVE OVERLOAD WINDOW",
+    rationale: `${region.label} is in a ready state ${context}. You can increase stimulus safely with control.`,
+    steps: [
+      "Increase load or volume by 5-10%.",
+      "Keep warm-up and activation specific to this region.",
+      "Track next-session readiness to confirm adaptation.",
+    ],
+  };
+}
+
 function buildCalibrationStateFromGeometry(): CalibrationState {
   return Object.fromEntries(
     regionGeometry.map((region) => [
@@ -108,7 +152,7 @@ function buildCalibrationStateFromGeometry(): CalibrationState {
   ) as CalibrationState;
 }
 
-export function BodyRecoveryDiagram({ view, insights = {} }: BodyRecoveryDiagramProps) {
+export function BodyRecoveryDiagram({ view, insights = {}, activityCodename }: BodyRecoveryDiagramProps) {
   const reduceMotion = useReducedMotion();
   const [surface, setSurface] = useState<"FRONT" | "BACK">("FRONT");
   const [hoveredRegionId, setHoveredRegionId] = useState<BodyRegionSignal["id"] | null>(null);
@@ -149,6 +193,7 @@ export function BodyRecoveryDiagram({ view, insights = {} }: BodyRecoveryDiagram
   const activeRegionId = selectedRegionId ?? hoveredRegionId ?? visibleRegionList[0]?.id ?? null;
   const activeRegion = activeRegionId ? byId.get(activeRegionId) ?? null : null;
   const activeInsight = activeRegionId ? insights[activeRegionId] : undefined;
+  const activeRoute = activeRegion ? buildRecoveryRoute(activeRegion, view.profile, activityCodename) : null;
 
   const nudgeCalibration = (target: "anchor" | "callout", axis: "x" | "y", direction: -1 | 1) => {
     if (!activeRegionId) return;
@@ -291,21 +336,36 @@ export function BodyRecoveryDiagram({ view, insights = {} }: BodyRecoveryDiagram
                     onMouseEnter={() => setHoveredRegionId(item.id)}
                     onMouseLeave={() => setHoveredRegionId((current) => (current === item.id ? null : current))}
                     onClick={() => setSelectedRegionId(item.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedRegionId(item.id);
+                      }
+                    }}
                   />
                   <polyline points={`${anchorX},${anchorY} ${connectorMidX},${connectorY} ${connectorEndX},${connectorY}`} fill="none" stroke="rgba(0,229,255,0.55)" strokeWidth="1" strokeDasharray="3 3" className="hidden md:block" />
                   {calibrationMode ? <circle cx={anchorX} cy={anchorY} r="3" fill="rgba(0,229,255,0.85)" className="hidden md:block" /> : null}
                   <circle cx={anchorX} cy={anchorY} r="11" fill="transparent" className="cursor-pointer" onClick={() => setSelectedRegionId(item.id)} />
                   {calibrationMode ? <circle cx={calloutX + (calloutSide === "left" ? calloutW : 0)} cy={connectorY} r="3" fill="rgba(0,229,255,0.85)" className="hidden md:block" /> : null}
-                  <rect x={calloutX} y={calloutY} width={calloutW} height={calloutH} className={`${statusCalloutClass[region.status]} hidden md:block`} strokeWidth="1.1" />
-                  <text x={calloutX + 10} y={calloutY + 17} fill="rgba(0,229,255,0.95)" fontSize="10" letterSpacing="2" className="hidden md:block">
-                    {region.label}
-                  </text>
-                  <text x={calloutX + 10} y={calloutY + 32} fill="rgba(180,244,255,0.95)" fontSize="10" letterSpacing="1" className="hidden md:block">
-                    RDY {region.readinessPct}% | LOAD {region.loadPct}% | REC {region.recoveryPct}%
-                  </text>
-                  <text x={calloutX + calloutW - 10} y={calloutY + 17} fill="rgba(0,229,255,0.9)" fontSize="10" textAnchor="end" letterSpacing="1" className="hidden md:block">
-                    {region.status}
-                  </text>
+                  <foreignObject x={calloutX} y={calloutY} width={calloutW} height={calloutH} className="hidden md:block overflow-visible">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRegionId(item.id)}
+                      className={`${statusCalloutClass[region.status]} h-full w-full border px-3 py-2 text-left transition-colors hover:bg-cyan-500/10 ${
+                        isActive ? "shadow-[0_0_14px_rgba(0,229,255,0.16)]" : ""
+                      }`}
+                    >
+                      <span className="flex items-start justify-between gap-2 text-[10px] tracking-[0.18em] text-cyan-100">
+                        <span>{region.label}</span>
+                        <span>{region.status}</span>
+                      </span>
+                      <span className="mt-1 block text-[10px] tracking-[0.12em] text-cyan-200/90">
+                        RDY {region.readinessPct}% | LOAD {region.loadPct}% | REC {region.recoveryPct}%
+                      </span>
+                    </button>
+                  </foreignObject>
                 </g>
               );
             })}
@@ -323,6 +383,27 @@ export function BodyRecoveryDiagram({ view, insights = {} }: BodyRecoveryDiagram
               TREND {activeInsight?.deltaPct && activeInsight.deltaPct > 0 ? "+" : ""}{activeInsight?.deltaPct ?? 0}% | ETA {activeInsight?.etaDays ?? "-"} DAY(S)
             </p>
           </article>
+        ) : null}
+
+        {activeRegion && activeRoute ? (
+          <section className="mt-3 border border-cyan-500/35 bg-black/80 p-3">
+            <p className="text-[10px] tracking-[0.15em] text-cyan-500">TARGETED MUSCLE INTERFACE</p>
+            <p className="mt-2 text-xs tracking-[0.14em] text-cyan-200">
+              TARGET {activeRegion.label} | ACTIVITY {activityCodename ?? "CURRENT ACTIVITY"}
+            </p>
+            <p className="mt-1 text-[11px] text-cyan-300/90">
+              STRESS LOAD {activeRegion.loadPct}% | READINESS {activeRegion.readinessPct}% | RECOVERY {activeRegion.recoveryPct}%
+            </p>
+            <p className="mt-2 text-xs tracking-[0.14em] text-cyan-100">{activeRoute.route}</p>
+            <p className="mt-1 text-[11px] text-cyan-300/85">{activeRoute.rationale}</p>
+            <ul className="mt-2 grid gap-1 text-[11px] text-cyan-300/85">
+              {activeRoute.steps.map((step) => (
+                <li key={`${activeRegion.id}-${step}`} className="border border-cyan-500/25 px-2 py-1">
+                  {step}
+                </li>
+              ))}
+            </ul>
+          </section>
         ) : null}
 
         {calibrationEnabled && calibrationMode && activeRegion ? (

@@ -47,7 +47,7 @@ export default function Home() {
 
         <TacticalReveal delay={0.07}>
           <section className="mx-auto w-full max-w-5xl">
-            <BodyRecoveryDiagram view={bodyRecoveryView} insights={bodyInsights} />
+            <BodyRecoveryDiagram view={bodyRecoveryView} insights={bodyInsights} activityCodename={snapshot.activity.codename} />
           </section>
         </TacticalReveal>
 
