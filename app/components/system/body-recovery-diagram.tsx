@@ -265,6 +265,9 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, inp
   const byId = new Map(view.regions.map((region) => [region.id, region]));
   const morph = useMemo(() => deriveAvatarMorphParams(input, view, photoRatios), [input, view, photoRatios]);
   const avatarShellPath = useMemo(() => buildAvatarShellPath(morph), [morph]);
+  const baseWidthScale = clamp((morph.shoulderScale * 0.34 + morph.waistScale * 0.33 + morph.hipScale * 0.33) * 0.98, 0.72, 1.34);
+  const baseHeightScale = clamp((morph.legScale * 0.52 + morph.torsoScale * 0.48) * 0.98, 0.76, 1.34);
+  const baseTransform = `translate(${morph.postureLeanDeg * 0.8} 0) translate(450 282) scale(${baseWidthScale} ${baseHeightScale}) translate(-450 -282)`;
   const visibleRegions = useMemo(() => (surface === "FRONT" ? new Set(frontRegions) : new Set(backRegions)), [surface]);
   const frontAsset = assetFallbackStage.front === 0 ? "/anatomy/body-front.png" : "/anatomy/cyber-humanoid-front.svg";
   const backAsset =
@@ -482,6 +485,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, inp
               height="452"
               href={surface === "FRONT" ? frontAsset : backAsset}
               preserveAspectRatio="xMidYMid meet"
+              transform={baseTransform}
               onError={() => {
                 setAssetFallbackStage((current) => {
                   if (surface === "FRONT") {
@@ -751,6 +755,8 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, inp
             { label: "COMPOSITION", value: `${view.development.compositionPct}%` },
             { label: "STRENGTH", value: `${view.development.strengthPct}%` },
             { label: "CONDITIONING", value: `${view.development.conditioningPct}%` },
+            { label: "AVATAR WIDTH", value: `${Math.round(baseWidthScale * 100)}%`, tone: "subtle" },
+            { label: "AVATAR HEIGHT", value: `${Math.round(baseHeightScale * 100)}%`, tone: "subtle" },
             { label: "AVATAR CONFIDENCE", value: `${Math.round(morph.confidencePct)}%`, tone: "subtle" },
           ]}
         />

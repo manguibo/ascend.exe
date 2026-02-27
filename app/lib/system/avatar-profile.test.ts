@@ -41,4 +41,16 @@ describe("avatar-profile", () => {
 
     expect(withPhoto.confidencePct).toBeGreaterThanOrEqual(base.confidencePct);
   });
+
+  it("produces visible morph differences for very different body inputs", () => {
+    const leanInput = { ...defaultSessionLogInput, heightCm: 193, bodyWeightKg: 68, targetWeightKg: 72, fitnessBaselinePct: 74 };
+    const heavyInput = { ...defaultSessionLogInput, heightCm: 160, bodyWeightKg: 122, targetWeightKg: 88, fitnessBaselinePct: 42 };
+    const leanView = buildBodyRecoveryView(leanInput);
+    const heavyView = buildBodyRecoveryView(heavyInput);
+    const leanMorph = deriveAvatarMorphParams(leanInput, leanView, null);
+    const heavyMorph = deriveAvatarMorphParams(heavyInput, heavyView, null);
+
+    expect(Math.abs(leanMorph.waistScale - heavyMorph.waistScale)).toBeGreaterThan(0.18);
+    expect(Math.abs(leanMorph.torsoScale - heavyMorph.torsoScale)).toBeGreaterThan(0.04);
+  });
 });

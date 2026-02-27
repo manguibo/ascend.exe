@@ -116,6 +116,9 @@ export function deriveAvatarMorphParams(
 ): AvatarMorphParams {
   const heightM = input.heightCm / 100;
   const bmi = input.bodyWeightKg / Math.max(1.1, heightM * heightM);
+  const relativeMass = input.bodyWeightKg / Math.max(38, input.heightCm - 100);
+  const targetBias = clamp((input.bodyWeightKg - input.targetWeightKg) / 30, -0.45, 0.6);
+  const heightBias = clamp((input.heightCm - 176) / 26, -1, 1);
   const fitness = clamp(input.fitnessBaselinePct / 100, 0, 1);
   const averageLoad = view.regions.reduce((sum, region) => sum + region.loadPct, 0) / Math.max(1, view.regions.length);
   const averageReadiness = view.regions.reduce((sum, region) => sum + region.readinessPct, 0) / Math.max(1, view.regions.length);
@@ -124,15 +127,57 @@ export function deriveAvatarMorphParams(
   const hipToHeight = photoRatios?.hipToHeight ?? baselineRatios.hipToHeight;
   const legToHeight = photoRatios?.legToHeight ?? baselineRatios.legToHeight;
   const armToHeight = photoRatios?.armToHeight ?? baselineRatios.armToHeight;
-  const bmiBand = clamp((bmi - 21) / 12, -0.6, 0.9);
+  const bmiBand = clamp((bmi - 21) / 10, -0.9, 1.4);
+  const massBand = clamp(relativeMass - 1, -0.45, 0.75);
+  const shapeEnergy = clamp((averageLoad - 50) / 100, -0.18, 0.24);
 
-  const shoulderScale = clamp(0.88 + (shoulderToHeight / baselineRatios.shoulderToHeight - 1) * 0.75 + fitness * 0.08 + bmiBand * 0.06, 0.78, 1.26);
-  const waistScale = clamp(0.88 + (waistToHeight / baselineRatios.waistToHeight - 1) * 0.85 + bmiBand * 0.16 - fitness * 0.08, 0.7, 1.34);
-  const hipScale = clamp(0.9 + (hipToHeight / baselineRatios.hipToHeight - 1) * 0.8 + bmiBand * 0.1, 0.76, 1.34);
-  const armScale = clamp(0.86 + (armToHeight / baselineRatios.armToHeight - 1) * 0.7 + averageLoad / 700 + fitness * 0.08, 0.72, 1.3);
-  const legScale = clamp(0.86 + (legToHeight / baselineRatios.legToHeight - 1) * 0.8 + averageLoad / 680 + fitness * 0.06, 0.75, 1.3);
-  const torsoScale = clamp(0.9 + (input.heightCm - 176) / 420 + (1 - fitness) * 0.05, 0.84, 1.16);
-  const postureLeanDeg = clamp((55 - averageReadiness) / 9, -3, 7);
+  const shoulderScale = clamp(
+    0.86 +
+      (shoulderToHeight / baselineRatios.shoulderToHeight - 1) * 0.95 +
+      fitness * 0.14 +
+      bmiBand * 0.1 +
+      shapeEnergy,
+    0.66,
+    1.48,
+  );
+  const waistScale = clamp(
+    0.82 +
+      (waistToHeight / baselineRatios.waistToHeight - 1) * 1.05 +
+      bmiBand * 0.26 +
+      targetBias * 0.3 -
+      fitness * 0.08,
+    0.58,
+    1.6,
+  );
+  const hipScale = clamp(
+    0.84 +
+      (hipToHeight / baselineRatios.hipToHeight - 1) * 0.95 +
+      bmiBand * 0.2 +
+      targetBias * 0.2 +
+      massBand * 0.14,
+    0.62,
+    1.58,
+  );
+  const armScale = clamp(
+    0.82 +
+      (armToHeight / baselineRatios.armToHeight - 1) * 0.9 +
+      averageLoad / 420 +
+      fitness * 0.15 +
+      massBand * 0.09,
+    0.62,
+    1.55,
+  );
+  const legScale = clamp(
+    0.82 +
+      (legToHeight / baselineRatios.legToHeight - 1) * 1 +
+      averageLoad / 440 +
+      fitness * 0.11 +
+      massBand * 0.1,
+    0.62,
+    1.6,
+  );
+  const torsoScale = clamp(0.9 + heightBias * 0.12 + massBand * 0.08 + (1 - fitness) * 0.06, 0.72, 1.28);
+  const postureLeanDeg = clamp((58 - averageReadiness) / 6 + Math.max(0, input.inactiveDays - 2) * 0.35, -6, 12);
   const confidencePct = clamp(
     54 +
       averageReadiness * 0.25 +
