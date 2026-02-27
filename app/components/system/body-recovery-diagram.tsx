@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import type { BodyRecoveryView, BodyRegionSignal, BodyRegionInsight } from "@/lib/system/body-recovery";
 import { MicroMetricGrid } from "./micro-metric-grid";
 
@@ -153,7 +153,6 @@ function buildCalibrationStateFromGeometry(): CalibrationState {
 }
 
 export function BodyRecoveryDiagram({ view, insights = {}, activityCodename }: BodyRecoveryDiagramProps) {
-  const reduceMotion = useReducedMotion();
   const [surface, setSurface] = useState<"FRONT" | "BACK">("FRONT");
   const [hoveredRegionId, setHoveredRegionId] = useState<BodyRegionSignal["id"] | null>(null);
   const [selectedRegionId, setSelectedRegionId] = useState<BodyRegionSignal["id"] | null>(null);
@@ -323,17 +322,17 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename }: B
                     className={statusGlowClass[region.status]}
                     strokeWidth="4"
                     filter="url(#region-outline-glow)"
-                    initial={reduceMotion ? false : { opacity: 0 }}
+                    initial={false}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.2, delay: reduceMotion ? 0 : index * 0.03 }}
+                    transition={{ duration: 0.2, delay: index * 0.03 }}
                   />
                   <motion.path
                     d={item.path}
                     className={statusZoneClass[region.status]}
                     strokeWidth={isActive ? "2.1" : "1.5"}
-                    initial={reduceMotion ? false : { opacity: 0 }}
+                    initial={false}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.2, delay: reduceMotion ? 0 : index * 0.03 }}
+                    transition={{ duration: 0.2, delay: index * 0.03 }}
                     onMouseEnter={() => setHoveredRegionId(item.id)}
                     onMouseLeave={() => setHoveredRegionId((current) => (current === item.id ? null : current))}
                     onClick={() => setSelectedRegionId(item.id)}
@@ -378,9 +377,9 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename }: B
           {selectedRegion && selectedRoute ? (
             <motion.aside
               key={`muscle-window-${selectedRegion.id}`}
-              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.97 }}
-              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.98 }}
+              initial={false}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 14, scale: 0.98 }}
               transition={{ duration: 0.22, ease: "easeOut" }}
               className="fixed bottom-6 right-6 z-50 w-[min(92vw,460px)] overflow-hidden border border-cyan-500/50 bg-black/95 p-3 font-mono shadow-[0_0_22px_rgba(0,229,255,0.14)]"
             >

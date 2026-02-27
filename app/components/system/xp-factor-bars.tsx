@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import type { XpFactor } from "@/lib/system/types";
 
 type XpFactorBarsProps = {
@@ -9,8 +9,6 @@ type XpFactorBarsProps = {
 };
 
 export function XpFactorBars({ factors, maxScale = 2 }: XpFactorBarsProps) {
-  const reduceMotion = useReducedMotion();
-
   return (
     <div className="grid gap-2">
       {factors.map((factor, index) => {
@@ -25,7 +23,7 @@ export function XpFactorBars({ factors, maxScale = 2 }: XpFactorBarsProps) {
             <div className="h-1.5 border border-cyan-500/30 bg-black">
               <motion.div
                 className="h-full bg-cyan-400/80"
-                initial={reduceMotion ? false : { scaleX: 0 }}
+                initial={false}
                 animate={{ scaleX: pct / 100 }}
                 transition={{ duration: 0.35, ease: "easeOut", delay: index * 0.03 }}
                 style={{ transformOrigin: "left center" }}

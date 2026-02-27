@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 
 export type MicroMetricItem = {
   label: string;
@@ -27,8 +27,6 @@ const columnClass: Record<NonNullable<MicroMetricGridProps["columns"]>, string> 
 };
 
 export function MicroMetricGrid({ items, columns = 2 }: MicroMetricGridProps) {
-  const reduceMotion = useReducedMotion();
-
   return (
     <div className={`grid gap-2 ${columnClass[columns]}`}>
       {items.map((item, index) => {
@@ -37,9 +35,9 @@ export function MicroMetricGrid({ items, columns = 2 }: MicroMetricGridProps) {
           <motion.article
             key={`${item.label}-${index}`}
             className={`border bg-black/70 p-3 ${toneClass[tone]}`}
-            initial={reduceMotion ? false : { opacity: 0, y: 3 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, delay: reduceMotion ? 0 : index * 0.02 }}
+            transition={{ duration: 0.2, delay: index * 0.02 }}
           >
             <p className="text-[10px] tracking-[0.17em] text-cyan-500/85">{item.label}</p>
             <p className="mt-1 text-sm tracking-[0.04em]">{item.value}</p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 
 type XpRetentionBarsProps = {
   preDecayTotalXp: number;
@@ -10,7 +10,6 @@ type XpRetentionBarsProps = {
 };
 
 export function XpRetentionBars({ preDecayTotalXp, postDecayTotalXp, decayDeltaXp, retentionPct }: XpRetentionBarsProps) {
-  const reduceMotion = useReducedMotion();
   const safePre = Math.max(1, preDecayTotalXp);
   const postPct = Math.max(0, Math.min(100, Math.round((postDecayTotalXp / safePre) * 100)));
   const deltaPct = Math.max(0, Math.min(100, 100 - postPct));
@@ -30,7 +29,7 @@ export function XpRetentionBars({ preDecayTotalXp, postDecayTotalXp, decayDeltaX
           <div className="h-2 border border-cyan-500/30 bg-black">
             <motion.div
               className="h-full bg-cyan-400/80"
-              initial={reduceMotion ? false : { scaleX: 0 }}
+              initial={false}
               animate={{ scaleX: postPct / 100 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
               style={{ transformOrigin: "left center" }}
@@ -45,7 +44,7 @@ export function XpRetentionBars({ preDecayTotalXp, postDecayTotalXp, decayDeltaX
           <div className="h-2 border border-cyan-500/30 bg-black">
             <motion.div
               className="h-full bg-[#ff7d89]/80"
-              initial={reduceMotion ? false : { scaleX: 0 }}
+              initial={false}
               animate={{ scaleX: deltaPct / 100 }}
               transition={{ duration: 0.4, ease: "easeOut", delay: 0.06 }}
               style={{ transformOrigin: "left center" }}

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 
 type RadialGaugeTone = "cyan" | "purple" | "red";
 
@@ -17,7 +17,6 @@ const toneClass: Record<RadialGaugeTone, string> = {
 };
 
 export function RadialGauge({ label, value, tone = "cyan" }: RadialGaugeProps) {
-  const reduceMotion = useReducedMotion();
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
@@ -37,7 +36,7 @@ export function RadialGauge({ label, value, tone = "cyan" }: RadialGaugeProps) {
             strokeWidth="4"
             className={toneClass[tone]}
             strokeDasharray={circumference}
-            initial={reduceMotion ? false : { strokeDashoffset: circumference }}
+            initial={false}
             animate={{ strokeDashoffset: circumference - dash }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           />
