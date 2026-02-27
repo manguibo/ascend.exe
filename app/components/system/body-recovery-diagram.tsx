@@ -59,6 +59,10 @@ const focusByRegion: Record<BodyRegionSignal["id"], THREE.Vector3> = {
   HAMSTRINGS: new THREE.Vector3(0, -0.62, 0),
 };
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 function buildRecoveryRoute(region: BodyRegionSignal, activityCodename?: string): RecoveryRoute {
   const context = activityCodename ? `for ${activityCodename}` : "for current activity";
   if (region.status === "RECOVER" || (region.loadPct >= 75 && region.recoveryPct <= 60)) {
