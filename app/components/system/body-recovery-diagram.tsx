@@ -28,6 +28,7 @@ type RegionShape = {
   position: [number, number, number];
   scale: [number, number, number];
   rotation?: [number, number, number];
+  kind?: "box" | "capsule" | "sphere";
 };
 
 type AvatarRigProps = {
@@ -135,20 +136,62 @@ function RegionMesh({
       onPointerOut={() => setHovered(false)}
       onPointerDown={handleSelect}
     >
-      <boxGeometry args={[1, 1, 0.56]} />
-      <meshStandardMaterial color={baseColor} transparent opacity={opacity} emissive={emissive} emissiveIntensity={selected ? 1.3 : 0.9} />
+      {shape.kind === "sphere" ? <sphereGeometry args={[0.5, 16, 16]} /> : null}
+      {shape.kind === "capsule" ? <capsuleGeometry args={[0.28, 1, 8, 14]} /> : null}
+      {!shape.kind || shape.kind === "box" ? <boxGeometry args={[1, 1, 0.56]} /> : null}
+      <meshStandardMaterial color={baseColor} transparent opacity={opacity} emissive={emissive} emissiveIntensity={selected ? 1.3 : 0.95} />
     </mesh>
+  );
+}
+
+function LimbVisual({
+  side,
+  x,
+  upperY,
+  lowerY,
+  upperRadius,
+  lowerRadius,
+  length,
+  color,
+  emissive,
+}: {
+  side: -1 | 1;
+  x: number;
+  upperY: number;
+  lowerY: number;
+  upperRadius: number;
+  lowerRadius: number;
+  length: number;
+  color: string;
+  emissive: string;
+}) {
+  return (
+    <group position={[side * x, 0, 0]}>
+      <mesh position={[0, upperY, 0]}>
+        <capsuleGeometry args={[upperRadius, length, 8, 16]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.48} transparent opacity={0.28} />
+      </mesh>
+      <mesh position={[0, lowerY, 0]}>
+        <capsuleGeometry args={[lowerRadius, length, 8, 16]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.4} transparent opacity={0.22} />
+      </mesh>
+      <mesh position={[0, (upperY + lowerY) / 2, 0]}>
+        <sphereGeometry args={[upperRadius * 1.08, 12, 12]} />
+        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.42} transparent opacity={0.28} />
+      </mesh>
+    </group>
   );
 }
 
 function AvatarRig({ regionById, selectedRegionId, onSelectRegion, morph, heightScale }: AvatarRigProps) {
   const rootRef = useRef<THREE.Group>(null);
-  const shoulderWidth = 0.82 * morph.shoulderScale;
-  const chestWidth = 0.64 * ((morph.shoulderScale + morph.waistScale) / 2);
-  const waistWidth = 0.44 * morph.waistScale;
-  const hipWidth = 0.55 * morph.hipScale;
-  const armWidth = 0.2 * morph.armScale;
-  const legWidth = 0.26 * morph.legScale;
+  const shoulderWidth = 0.66 * morph.shoulderScale;
+  const chestWidth = 0.48 * ((morph.shoulderScale + morph.waistScale) / 2);
+  const waistWidth = 0.34 * morph.waistScale;
+  const hipWidth = 0.45 * morph.hipScale;
+  const armRadius = 0.11 * morph.armScale;
+  const legRadius = 0.14 * morph.legScale;
+  const torsoDepth = 0.28 + (morph.hipScale - 1) * 0.06;
 
   useFrame((state) => {
     if (!rootRef.current) return;
@@ -159,32 +202,58 @@ function AvatarRig({ regionById, selectedRegionId, onSelectRegion, morph, height
   });
 
   const regionShapes: RegionShape[] = [
-    { id: "SHOULDERS", position: [0, 1.54, 0], scale: [shoulderWidth, 0.18 * morph.torsoScale, 0.42] },
-    { id: "CHEST", position: [0, 1.16, 0], scale: [chestWidth, 0.46 * morph.torsoScale, 0.44] },
-    { id: "BACK", position: [0, 1.1, -0.02], scale: [chestWidth, 0.48 * morph.torsoScale, 0.46] },
-    { id: "CORE", position: [0, 0.66, 0], scale: [waistWidth, 0.54 * morph.torsoScale, 0.4] },
-    { id: "GLUTES", position: [0, 0.2, 0], scale: [hipWidth, 0.26 * morph.torsoScale, 0.44] },
-    { id: "ARMS", position: [0.95, 0.92, 0], scale: [armWidth, 0.94 * morph.torsoScale, 0.36] },
-    { id: "QUADS", position: [0.12, -0.42, 0], scale: [legWidth, 0.9 * morph.legScale, 0.36] },
-    { id: "HAMSTRINGS", position: [0.12, -0.62, -0.06], scale: [legWidth, 0.86 * morph.legScale, 0.36] },
+    { id: "SHOULDERS", position: [0, 1.52, 0], scale: [shoulderWidth, 0.16 * morph.torsoScale, 0.36], kind: "capsule" },
+    { id: "CHEST", position: [0, 1.12, 0.02], scale: [chestWidth, 0.5 * morph.torsoScale, torsoDepth], kind: "capsule" },
+    { id: "BACK", position: [0, 1.08, -0.08], scale: [chestWidth, 0.48 * morph.torsoScale, torsoDepth], kind: "capsule" },
+    { id: "CORE", position: [0, 0.64, 0], scale: [waistWidth, 0.46 * morph.torsoScale, torsoDepth * 0.92], kind: "capsule" },
+    { id: "GLUTES", position: [0, 0.16, -0.02], scale: [hipWidth, 0.3 * morph.torsoScale, torsoDepth * 1.05], kind: "capsule" },
+    { id: "ARMS", position: [0.86, 0.9, 0], scale: [armRadius, 0.96 * morph.torsoScale, 0.22], kind: "capsule" },
+    { id: "QUADS", position: [0.17, -0.36, 0.02], scale: [legRadius, 0.92 * morph.legScale, 0.28], kind: "capsule" },
+    { id: "HAMSTRINGS", position: [0.17, -0.56, -0.08], scale: [legRadius, 0.9 * morph.legScale, 0.28], kind: "capsule" },
   ];
 
   return (
     <group ref={rootRef} scale={[1, heightScale, 1]}>
       <mesh position={[0, 1.92, 0]}>
-        <sphereGeometry args={[0.21 * (0.92 + morph.torsoScale * 0.1), 22, 22]} />
-        <meshStandardMaterial color="#82eaff" emissive="#6f5ac7" emissiveIntensity={0.55} transparent opacity={0.35} />
+        <sphereGeometry args={[0.19 * (0.96 + morph.torsoScale * 0.08), 28, 28]} />
+        <meshStandardMaterial color="#8cecff" emissive="#8e6de4" emissiveIntensity={0.62} transparent opacity={0.32} />
       </mesh>
 
-      <mesh position={[0, 1.76, 0]} scale={[0.22 * morph.torsoScale, 0.28 * morph.torsoScale, 0.22]}>
-        <cylinderGeometry args={[0.5, 0.5, 1, 14]} />
-        <meshStandardMaterial color="#8cf2ff" emissive="#62d6ff" emissiveIntensity={0.45} transparent opacity={0.24} />
+      <mesh position={[0, 1.77, 0.06]} scale={[0.8, 0.45, 0.8]}>
+        <sphereGeometry args={[0.12, 18, 18]} />
+        <meshStandardMaterial color="#8cecff" emissive="#6ddaff" emissiveIntensity={0.48} transparent opacity={0.2} />
       </mesh>
 
-      <mesh position={[0, 0.72, 0]} scale={[0.03, 2.35, 0.03]}>
+      <mesh position={[0, 1.74, 0]} scale={[0.24 * morph.torsoScale, 0.22 * morph.torsoScale, 0.24]}>
+        <cylinderGeometry args={[0.42, 0.48, 1, 18]} />
+        <meshStandardMaterial color="#8cf2ff" emissive="#62d6ff" emissiveIntensity={0.5} transparent opacity={0.25} />
+      </mesh>
+
+      <mesh position={[0, 0.76, 0]} scale={[0.028, 2.32, 0.028]}>
         <cylinderGeometry args={[1, 1, 1, 12]} />
-        <meshStandardMaterial color="#dfa1ff" emissive="#d68eff" emissiveIntensity={0.8} transparent opacity={0.5} />
+        <meshStandardMaterial color="#dfa1ff" emissive="#d68eff" emissiveIntensity={0.85} transparent opacity={0.52} />
       </mesh>
+
+      <mesh position={[0, 1.05, 0]} scale={[chestWidth * 1.08, 0.62 * morph.torsoScale, torsoDepth * 1.4]}>
+        <capsuleGeometry args={[0.42, 0.86, 10, 18]} />
+        <meshStandardMaterial color="#89efff" emissive="#5edaff" emissiveIntensity={0.5} transparent opacity={0.22} />
+      </mesh>
+
+      <mesh position={[0, 0.5, 0]} scale={[waistWidth * 1.12, 0.5 * morph.torsoScale, torsoDepth * 1.3]}>
+        <capsuleGeometry args={[0.35, 0.7, 10, 18]} />
+        <meshStandardMaterial color="#98deff" emissive="#7f89ff" emissiveIntensity={0.32} transparent opacity={0.18} />
+      </mesh>
+
+      <mesh position={[0, 0.12, -0.03]} scale={[hipWidth * 1.08, 0.44 * morph.torsoScale, torsoDepth * 1.55]}>
+        <capsuleGeometry args={[0.38, 0.5, 10, 18]} />
+        <meshStandardMaterial color="#8ed8ff" emissive="#c88cff" emissiveIntensity={0.34} transparent opacity={0.2} />
+      </mesh>
+
+      <LimbVisual side={-1} x={0.66 * morph.shoulderScale} upperY={0.96} lowerY={0.42} upperRadius={armRadius} lowerRadius={armRadius * 0.88} length={0.42 * morph.torsoScale} color="#7fe4ff" emissive="#7bc5ff" />
+      <LimbVisual side={1} x={0.66 * morph.shoulderScale} upperY={0.96} lowerY={0.42} upperRadius={armRadius} lowerRadius={armRadius * 0.88} length={0.42 * morph.torsoScale} color="#7fe4ff" emissive="#7bc5ff" />
+
+      <LimbVisual side={-1} x={0.2 * morph.hipScale} upperY={-0.26} lowerY={-0.92} upperRadius={legRadius} lowerRadius={legRadius * 0.82} length={0.58 * morph.legScale} color="#86dbff" emissive="#9b8eff" />
+      <LimbVisual side={1} x={0.2 * morph.hipScale} upperY={-0.26} lowerY={-0.92} upperRadius={legRadius} lowerRadius={legRadius * 0.82} length={0.58 * morph.legScale} color="#86dbff" emissive="#9b8eff" />
 
       {regionShapes.map((shape) => {
         const region = regionById.get(shape.id);
