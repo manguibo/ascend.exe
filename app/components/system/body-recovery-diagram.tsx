@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { BodyRecoveryView, BodyRegionSignal, BodyRegionInsight } from "@/lib/system/body-recovery";
 import { MicroMetricGrid } from "./micro-metric-grid";
 
@@ -374,39 +374,65 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename }: B
         </div>
         <p className="mt-2 text-[10px] tracking-[0.14em] text-cyan-500/85">Cyan = READY | Purple = MONITOR | Red = RECOVER</p>
 
-        {selectedRegion && selectedRoute ? (
-          <aside className="fixed bottom-6 right-6 z-50 w-[min(92vw,460px)] border border-cyan-500/50 bg-black/95 p-3 font-mono shadow-[0_0_22px_rgba(0,229,255,0.14)]">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-[10px] tracking-[0.15em] text-cyan-500">TARGETED MUSCLE INTERFACE</p>
-              <button
-                type="button"
-                onClick={() => setSelectedRegionId(null)}
-                className="border border-cyan-500/40 px-2 py-1 text-[10px] tracking-[0.14em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
-              >
-                CLOSE
-              </button>
-            </div>
-            <p className="mt-2 text-xs tracking-[0.14em] text-cyan-200">
-              TARGET {selectedRegion.label} | ACTIVITY {activityCodename ?? "CURRENT ACTIVITY"}
-            </p>
-            <p className="mt-1 text-[11px] text-cyan-300/90">
-              STRESS LOAD {selectedRegion.loadPct}% | READINESS {selectedRegion.readinessPct}% | RECOVERY {selectedRegion.recoveryPct}%
-            </p>
-            <p className="mt-1 text-[11px] text-cyan-500/90">
-              TREND {selectedInsight?.deltaPct && selectedInsight.deltaPct > 0 ? "+" : ""}{selectedInsight?.deltaPct ?? 0}% | ETA{" "}
-              {selectedInsight?.etaDays ?? "-"} DAY(S)
-            </p>
-            <p className="mt-2 text-xs tracking-[0.14em] text-cyan-100">{selectedRoute.route}</p>
-            <p className="mt-1 text-[11px] text-cyan-300/85">{selectedRoute.rationale}</p>
-            <ul className="mt-2 grid gap-1 text-[11px] text-cyan-300/85">
-              {selectedRoute.steps.map((step) => (
-                <li key={`${selectedRegion.id}-${step}`} className="border border-cyan-500/25 px-2 py-1">
-                  {step}
-                </li>
-              ))}
-            </ul>
-          </aside>
-        ) : null}
+        <AnimatePresence>
+          {selectedRegion && selectedRoute ? (
+            <motion.aside
+              key={`muscle-window-${selectedRegion.id}`}
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.97 }}
+              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="fixed bottom-6 right-6 z-50 w-[min(92vw,460px)] overflow-hidden border border-cyan-500/50 bg-black/95 p-3 font-mono shadow-[0_0_22px_rgba(0,229,255,0.14)]"
+            >
+              <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:linear-gradient(rgba(0,229,255,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(0,229,255,0.2)_1px,transparent_1px)] [background-size:20px_20px]" />
+              <motion.div
+                aria-hidden
+                className="pointer-events-none absolute top-0 h-full w-20 bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent"
+                initial={false}
+                animate={{ x: ["-130%", "360%"] }}
+                transition={{ duration: 2.2, ease: "linear", repeat: Infinity, repeatDelay: 1.1 }}
+              />
+              <motion.div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 border border-cyan-300/25"
+                initial={false}
+                animate={{ opacity: [0.3, 0.55, 0.3] }}
+                transition={{ duration: 1.8, ease: "easeInOut", repeat: Infinity }}
+              />
+              <div className="relative z-10">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-[10px] tracking-[0.15em] text-cyan-500">TARGETED MUSCLE INTERFACE</p>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRegionId(null)}
+                    className="border border-cyan-500/40 px-2 py-1 text-[10px] tracking-[0.14em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
+                  >
+                    CLOSE
+                  </button>
+                </div>
+                <p className="mt-2 text-xs tracking-[0.14em] text-cyan-200">
+                  TARGET {selectedRegion.label} | ACTIVITY {activityCodename ?? "CURRENT ACTIVITY"}
+                </p>
+                <p className="mt-1 text-[11px] text-cyan-300/90">
+                  STRESS LOAD {selectedRegion.loadPct}% | READINESS {selectedRegion.readinessPct}% | RECOVERY {selectedRegion.recoveryPct}%
+                </p>
+                <p className="mt-1 text-[11px] text-cyan-500/90">
+                  TREND {selectedInsight?.deltaPct && selectedInsight.deltaPct > 0 ? "+" : ""}{selectedInsight?.deltaPct ?? 0}% | ETA{" "}
+                  {selectedInsight?.etaDays ?? "-"} DAY(S)
+                </p>
+                <p className="mt-2 text-xs tracking-[0.14em] text-cyan-100">{selectedRoute.route}</p>
+                <p className="mt-1 text-[11px] text-cyan-300/85">{selectedRoute.rationale}</p>
+                <ul className="mt-2 grid gap-1 text-[11px] text-cyan-300/85">
+                  {selectedRoute.steps.map((step) => (
+                    <li key={`${selectedRegion.id}-${step}`} className="border border-cyan-500/25 px-2 py-1">
+                      {step}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </motion.aside>
+          ) : null}
+        </AnimatePresence>
 
         {calibrationEnabled && calibrationMode && activeRegion ? (
           <section className="mt-3 border border-cyan-500/35 p-3">
