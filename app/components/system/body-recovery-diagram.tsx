@@ -192,8 +192,9 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename }: B
   );
   const activeRegionId = selectedRegionId ?? hoveredRegionId ?? visibleRegionList[0]?.id ?? null;
   const activeRegion = activeRegionId ? byId.get(activeRegionId) ?? null : null;
-  const activeInsight = activeRegionId ? insights[activeRegionId] : undefined;
-  const activeRoute = activeRegion ? buildRecoveryRoute(activeRegion, view.profile, activityCodename) : null;
+  const selectedRegion = selectedRegionId ? byId.get(selectedRegionId) ?? null : null;
+  const selectedInsight = selectedRegionId ? insights[selectedRegionId] : undefined;
+  const selectedRoute = selectedRegion ? buildRecoveryRoute(selectedRegion, view.profile, activityCodename) : null;
 
   const nudgeCalibration = (target: "anchor" | "callout", axis: "x" | "y", direction: -1 | 1) => {
     if (!activeRegionId) return;
@@ -373,37 +374,38 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename }: B
         </div>
         <p className="mt-2 text-[10px] tracking-[0.14em] text-cyan-500/85">Cyan = READY | Purple = MONITOR | Red = RECOVER</p>
 
-        {activeRegion ? (
-          <article className="mt-3 border border-cyan-500/40 bg-black/80 p-3 md:hidden">
-            <p className="text-xs tracking-[0.16em] text-cyan-200">{activeRegion.label} | {activeRegion.status}</p>
+        {selectedRegion && selectedRoute ? (
+          <aside className="fixed bottom-6 right-6 z-50 w-[min(92vw,460px)] border border-cyan-500/50 bg-black/95 p-3 font-mono shadow-[0_0_22px_rgba(0,229,255,0.14)]">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[10px] tracking-[0.15em] text-cyan-500">TARGETED MUSCLE INTERFACE</p>
+              <button
+                type="button"
+                onClick={() => setSelectedRegionId(null)}
+                className="border border-cyan-500/40 px-2 py-1 text-[10px] tracking-[0.14em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
+              >
+                CLOSE
+              </button>
+            </div>
+            <p className="mt-2 text-xs tracking-[0.14em] text-cyan-200">
+              TARGET {selectedRegion.label} | ACTIVITY {activityCodename ?? "CURRENT ACTIVITY"}
+            </p>
             <p className="mt-1 text-[11px] text-cyan-300/90">
-              READINESS {activeRegion.readinessPct}% | LOAD {activeRegion.loadPct}% | RECOVERY {activeRegion.recoveryPct}%
+              STRESS LOAD {selectedRegion.loadPct}% | READINESS {selectedRegion.readinessPct}% | RECOVERY {selectedRegion.recoveryPct}%
             </p>
             <p className="mt-1 text-[11px] text-cyan-500/90">
-              TREND {activeInsight?.deltaPct && activeInsight.deltaPct > 0 ? "+" : ""}{activeInsight?.deltaPct ?? 0}% | ETA {activeInsight?.etaDays ?? "-"} DAY(S)
+              TREND {selectedInsight?.deltaPct && selectedInsight.deltaPct > 0 ? "+" : ""}{selectedInsight?.deltaPct ?? 0}% | ETA{" "}
+              {selectedInsight?.etaDays ?? "-"} DAY(S)
             </p>
-          </article>
-        ) : null}
-
-        {activeRegion && activeRoute ? (
-          <section className="mt-3 border border-cyan-500/35 bg-black/80 p-3">
-            <p className="text-[10px] tracking-[0.15em] text-cyan-500">TARGETED MUSCLE INTERFACE</p>
-            <p className="mt-2 text-xs tracking-[0.14em] text-cyan-200">
-              TARGET {activeRegion.label} | ACTIVITY {activityCodename ?? "CURRENT ACTIVITY"}
-            </p>
-            <p className="mt-1 text-[11px] text-cyan-300/90">
-              STRESS LOAD {activeRegion.loadPct}% | READINESS {activeRegion.readinessPct}% | RECOVERY {activeRegion.recoveryPct}%
-            </p>
-            <p className="mt-2 text-xs tracking-[0.14em] text-cyan-100">{activeRoute.route}</p>
-            <p className="mt-1 text-[11px] text-cyan-300/85">{activeRoute.rationale}</p>
+            <p className="mt-2 text-xs tracking-[0.14em] text-cyan-100">{selectedRoute.route}</p>
+            <p className="mt-1 text-[11px] text-cyan-300/85">{selectedRoute.rationale}</p>
             <ul className="mt-2 grid gap-1 text-[11px] text-cyan-300/85">
-              {activeRoute.steps.map((step) => (
-                <li key={`${activeRegion.id}-${step}`} className="border border-cyan-500/25 px-2 py-1">
+              {selectedRoute.steps.map((step) => (
+                <li key={`${selectedRegion.id}-${step}`} className="border border-cyan-500/25 px-2 py-1">
                   {step}
                 </li>
               ))}
             </ul>
-          </section>
+          </aside>
         ) : null}
 
         {calibrationEnabled && calibrationMode && activeRegion ? (
