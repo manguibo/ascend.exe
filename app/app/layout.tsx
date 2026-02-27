@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { GlobalActivityOverlay } from "@/components/system/global-activity-overlay";
 import { GlobalQuickActions } from "@/components/system/global-quick-actions";
 import { GlobalStatusRail } from "@/components/system/global-status-rail";
+import { SystemOnboarding } from "@/components/system/system-onboarding";
 import { Geist_Mono } from "next/font/google";
 import { SystemBackdrop } from "@/components/system/system-backdrop";
 import { TopNav } from "@/components/system/top-nav";
@@ -32,6 +33,7 @@ export default function RootLayout({
           <GlobalQuickActions />
           {children}
           <GlobalActivityOverlay />
+          <SystemOnboarding />
         </div>
       </body>
     </html>
