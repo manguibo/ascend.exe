@@ -195,6 +195,10 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename }: B
   const selectedInsight = selectedRegionId ? insights[selectedRegionId] : undefined;
   const selectedRoute = selectedRegion ? buildRecoveryRoute(selectedRegion, view.profile, activityCodename) : null;
 
+  const toggleSelectedRegion = (regionId: BodyRegionSignal["id"]) => {
+    setSelectedRegionId((current) => (current === regionId ? null : regionId));
+  };
+
   const nudgeCalibration = (target: "anchor" | "callout", axis: "x" | "y", direction: -1 | 1) => {
     if (!activeRegionId) return;
     setCalibration((current) => {
@@ -335,24 +339,24 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename }: B
                     transition={{ duration: 0.2, delay: index * 0.03 }}
                     onMouseEnter={() => setHoveredRegionId(item.id)}
                     onMouseLeave={() => setHoveredRegionId((current) => (current === item.id ? null : current))}
-                    onClick={() => setSelectedRegionId(item.id)}
+                    onClick={() => toggleSelectedRegion(item.id)}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        setSelectedRegionId(item.id);
+                        toggleSelectedRegion(item.id);
                       }
                     }}
                   />
                   <polyline points={`${anchorX},${anchorY} ${connectorMidX},${connectorY} ${connectorEndX},${connectorY}`} fill="none" stroke="rgba(0,229,255,0.55)" strokeWidth="1" strokeDasharray="3 3" className="hidden md:block" />
                   {calibrationMode ? <circle cx={anchorX} cy={anchorY} r="3" fill="rgba(0,229,255,0.85)" className="hidden md:block" /> : null}
-                  <circle cx={anchorX} cy={anchorY} r="11" fill="transparent" className="cursor-pointer" onClick={() => setSelectedRegionId(item.id)} />
+                  <circle cx={anchorX} cy={anchorY} r="11" fill="transparent" className="cursor-pointer" onClick={() => toggleSelectedRegion(item.id)} />
                   {calibrationMode ? <circle cx={calloutX + (calloutSide === "left" ? calloutW : 0)} cy={connectorY} r="3" fill="rgba(0,229,255,0.85)" className="hidden md:block" /> : null}
                   <foreignObject x={calloutX} y={calloutY} width={calloutW} height={calloutH} className="hidden md:block overflow-visible">
                     <button
                       type="button"
-                      onClick={() => setSelectedRegionId(item.id)}
+                      onClick={() => toggleSelectedRegion(item.id)}
                       className={`${statusCalloutClass[region.status]} h-full w-full border px-3 py-2 text-left transition-colors hover:bg-cyan-500/10 ${
                         isActive ? "shadow-[0_0_14px_rgba(0,229,255,0.16)]" : ""
                       }`}
