@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import type { ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { BodyRecoveryView, BodyRegionInsight, BodyRegionSignal } from "@/lib/system/body-recovery";
 import { deriveAvatarMorphParams } from "@/lib/system/avatar-profile";
@@ -23,24 +23,25 @@ type RecoveryRoute = {
   steps: readonly string[];
 };
 
-type RegionShape = {
-  id: BodyRegionSignal["id"];
-  position: [number, number, number];
-  scale: [number, number, number];
-  rotation?: [number, number, number];
-  kind?: "box" | "capsule" | "sphere";
-};
-
-type AvatarRigProps = {
-  regionById: Map<BodyRegionSignal["id"], BodyRegionSignal>;
-  selectedRegionId: BodyRegionSignal["id"] | null;
-  onSelectRegion: (id: BodyRegionSignal["id"]) => void;
-  morph: ReturnType<typeof deriveAvatarMorphParams>;
-  heightScale: number;
-};
+type RegionId = BodyRegionSignal["id"];
+type RegionCenterMap = Partial<Record<RegionId, THREE.Vector3>>;
 
 type CameraControllerProps = {
-  selectedRegionId: BodyRegionSignal["id"] | null;
+  surface: "FRONT" | "BACK";
+  selectedRegionId: RegionId | null;
+  regionCenters: RegionCenterMap;
+};
+
+type AvatarModelProps = {
+  modelUrl: string;
+  morph: ReturnType<typeof deriveAvatarMorphParams>;
+  surface: "FRONT" | "BACK";
+  selectedRegionId: RegionId | null;
+  hoveredRegionId: RegionId | null;
+  regionById: Map<RegionId, BodyRegionSignal>;
+  onRegionHover: (regionId: RegionId | null) => void;
+  onRegionSelect: (regionId: RegionId) => void;
+  onRegionCenters: (centers: RegionCenterMap) => void;
 };
 
 const statusColor: Record<BodyRegionSignal["status"], string> = {
@@ -49,16 +50,7 @@ const statusColor: Record<BodyRegionSignal["status"], string> = {
   RECOVER: "#ff8fa1",
 };
 
-const focusByRegion: Record<BodyRegionSignal["id"], THREE.Vector3> = {
-  SHOULDERS: new THREE.Vector3(0, 1.56, 0),
-  CHEST: new THREE.Vector3(0, 1.18, 0),
-  BACK: new THREE.Vector3(0, 1.14, 0),
-  ARMS: new THREE.Vector3(0.92, 0.98, 0),
-  CORE: new THREE.Vector3(0, 0.62, 0),
-  GLUTES: new THREE.Vector3(0, 0.18, 0),
-  QUADS: new THREE.Vector3(0, -0.42, 0),
-  HAMSTRINGS: new THREE.Vector3(0, -0.62, 0),
-};
+const MODEL_URL = "/anatomy/human-avatar.glb";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -89,213 +81,252 @@ function buildRecoveryRoute(region: BodyRegionSignal, activityCodename?: string)
   };
 }
 
-function CameraController({ selectedRegionId }: CameraControllerProps) {
+function inferRegionFromName(name: string): RegionId | null {
+  const key = name.toUpperCase();
+  if (!key) return null;
+
+  if (key.includes("SHOULDER") || key.includes("DELTOID") || key.includes("CLAVICLE")) return "SHOULDERS";
+  if (key.includes("CHEST") || key.includes("PECT") || key.includes("RIBCAGE")) return "CHEST";
+  if (key.includes("BACK") || key.includes("LAT") || key.includes("SPINE") || key.includes("SCAPULA")) return "BACK";
+  if (key.includes("ARM") || key.includes("BICEP") || key.includes("TRICEP") || key.includes("FOREARM") || key.includes("HAND")) return "ARMS";
+  if (key.includes("CORE") || key.includes("ABS") || key.includes("ABDOMEN") || key.includes("OBLIQUE") || key.includes("TORSO")) return "CORE";
+  if (key.includes("GLUTE") || key.includes("PELVIS") || key.includes("BUTT")) return "GLUTES";
+  if (key.includes("QUAD") || key.includes("THIGH")) return "QUADS";
+  if (key.includes("HAMSTRING") || key.includes("CALF") || key.includes("SHIN")) return "HAMSTRINGS";
+  return null;
+}
+
+function inferRegionFromPosition(position: THREE.Vector3): RegionId {
+  if (position.y > 1.38) return "SHOULDERS";
+  if (position.y > 1.05) return position.z > -0.05 ? "CHEST" : "BACK";
+  if (Math.abs(position.x) > 0.48 && position.y > 0.2) return "ARMS";
+  if (position.y > 0.35) return "CORE";
+  if (position.y > -0.2) return "GLUTES";
+  return position.y > -0.7 ? "QUADS" : "HAMSTRINGS";
+}
+
+function resolveRegionIdFromObject(object: THREE.Object3D): RegionId | null {
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    const regionId = node.userData?.regionId as RegionId | undefined;
+    if (regionId) return regionId;
+    node = node.parent;
+  }
+  return null;
+}
+
+function CameraController({ surface, selectedRegionId, regionCenters }: CameraControllerProps) {
   const { camera } = useThree();
-  const lookAt = useRef(new THREE.Vector3(0, 0.9, 0));
+  const lookAt = useRef(new THREE.Vector3(0, 0.94, 0));
 
   useFrame(() => {
-    const focus = selectedRegionId ? focusByRegion[selectedRegionId] : new THREE.Vector3(0, 0.82, 0);
-    const desiredCamera = selectedRegionId
-      ? new THREE.Vector3(focus.x * 0.58, focus.y + 0.3, 2.05)
-      : new THREE.Vector3(0, 0.95, 4.65);
-    camera.position.lerp(desiredCamera, 0.08);
-    lookAt.current.lerp(focus, 0.08);
+    const defaultLook = surface === "FRONT" ? new THREE.Vector3(0, 0.94, 0.05) : new THREE.Vector3(0, 0.94, -0.05);
+    const defaultPos = surface === "FRONT" ? new THREE.Vector3(0, 1.08, 3.42) : new THREE.Vector3(0, 1.08, -3.42);
+    const center = selectedRegionId ? regionCenters[selectedRegionId] : null;
+    const desiredLook = center ? center.clone() : defaultLook;
+    const desiredPos = center
+      ? new THREE.Vector3(center.x * 0.42, center.y + 0.24, center.z + (surface === "FRONT" ? 1.86 : -1.86))
+      : defaultPos;
+
+    camera.position.lerp(desiredPos, 0.1);
+    lookAt.current.lerp(desiredLook, 0.1);
     camera.lookAt(lookAt.current);
   });
 
   return null;
 }
 
-function RegionMesh({
-  shape,
-  region,
-  selected,
-  onSelect,
-}: {
-  shape: RegionShape;
-  region: BodyRegionSignal;
-  selected: boolean;
-  onSelect: (id: BodyRegionSignal["id"]) => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const baseColor = statusColor[region.status];
-  const emissive = selected || hovered ? new THREE.Color(baseColor) : new THREE.Color(baseColor).multiplyScalar(0.3);
-  const opacity = selected ? 0.5 : hovered ? 0.35 : 0.25;
+function AvatarModel({
+  modelUrl,
+  morph,
+  surface,
+  selectedRegionId,
+  hoveredRegionId,
+  regionById,
+  onRegionHover,
+  onRegionSelect,
+  onRegionCenters,
+}: AvatarModelProps) {
+  const rootRef = useRef<THREE.Group>(null);
+  const { scene } = useGLTF(modelUrl);
+  const cloned = useMemo(() => scene.clone(true), [scene]);
 
-  const handleSelect = (event: ThreeEvent<MouseEvent>) => {
+  useEffect(() => {
+    const centers = new Map<RegionId, THREE.Vector3[]>();
+    const centerAccumulator = (regionId: RegionId, point: THREE.Vector3) => {
+      const existing = centers.get(regionId) ?? [];
+      existing.push(point.clone());
+      centers.set(regionId, existing);
+    };
+
+    cloned.traverse((node) => {
+      if (!(node as THREE.Mesh).isMesh) return;
+      const mesh = node as THREE.Mesh;
+      const nameRegion = inferRegionFromName(mesh.name);
+      const fallbackRegion = inferRegionFromPosition(mesh.position);
+      const regionId = nameRegion ?? fallbackRegion;
+      mesh.userData.regionId = regionId;
+
+      if (Array.isArray(mesh.material)) {
+        mesh.material = mesh.material.map((item) => item.clone());
+      } else if (mesh.material) {
+        mesh.material = mesh.material.clone();
+      }
+
+      const box = new THREE.Box3().setFromObject(mesh);
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      centerAccumulator(regionId, center);
+    });
+
+    const normalized: RegionCenterMap = {};
+    centers.forEach((points, regionId) => {
+      if (points.length === 0) return;
+      const sum = points.reduce((acc, point) => acc.add(point), new THREE.Vector3(0, 0, 0));
+      normalized[regionId] = sum.multiplyScalar(1 / points.length);
+    });
+    onRegionCenters(normalized);
+  }, [cloned, onRegionCenters]);
+
+  useFrame((state) => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const t = state.clock.getElapsedTime();
+    root.rotation.y = THREE.MathUtils.lerp(root.rotation.y, surface === "FRONT" ? 0 : Math.PI, 0.08);
+    root.rotation.x = Math.sin(t * 0.7) * 0.02;
+    root.position.y = Math.sin(t * 1.25) * 0.03;
+    root.scale.set(
+      0.84 + (morph.shoulderScale * 0.34 + morph.waistScale * 0.33 + morph.hipScale * 0.33) * 0.12,
+      0.9 + morph.torsoScale * 0.08 + morph.legScale * 0.2,
+      0.86 + morph.hipScale * 0.08,
+    );
+
+    cloned.traverse((node) => {
+      if (!(node as THREE.Mesh).isMesh) return;
+      const mesh = node as THREE.Mesh;
+      const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      if (!(material instanceof THREE.MeshStandardMaterial)) return;
+      const regionId = mesh.userData.regionId as RegionId | undefined;
+      if (!regionId) return;
+      const region = regionById.get(regionId);
+      if (!region) return;
+
+      const color = new THREE.Color(statusColor[region.status]);
+      const selected = selectedRegionId === regionId;
+      const hovered = hoveredRegionId === regionId;
+      material.color.copy(color.clone().multiplyScalar(0.84));
+      material.transparent = true;
+      material.opacity = selected ? 0.54 : hovered ? 0.42 : 0.28;
+      material.emissive.copy(selected ? color : color.clone().multiplyScalar(0.22));
+      material.emissiveIntensity = selected ? 1.55 : hovered ? 1 : 0.56;
+      material.roughness = 0.32;
+      material.metalness = 0.12;
+    });
+  });
+
+  const onPointerMove = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
-    onSelect(shape.id);
+    onRegionHover(resolveRegionIdFromObject(event.object));
+  };
+
+  const onPointerOut = () => {
+    onRegionHover(null);
+  };
+
+  const onPointerDown = (event: ThreeEvent<MouseEvent>) => {
+    event.stopPropagation();
+    const regionId = resolveRegionIdFromObject(event.object);
+    if (regionId) onRegionSelect(regionId);
   };
 
   return (
-    <mesh
-      position={shape.position}
-      scale={shape.scale}
-      rotation={shape.rotation}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
-      onPointerDown={handleSelect}
-    >
-      {shape.kind === "sphere" ? <sphereGeometry args={[0.5, 16, 16]} /> : null}
-      {shape.kind === "capsule" ? <capsuleGeometry args={[0.28, 1, 8, 14]} /> : null}
-      {!shape.kind || shape.kind === "box" ? <boxGeometry args={[1, 1, 0.56]} /> : null}
-      <meshStandardMaterial color={baseColor} transparent opacity={opacity} emissive={emissive} emissiveIntensity={selected ? 1.3 : 0.95} />
-    </mesh>
-  );
-}
-
-function LimbVisual({
-  side,
-  x,
-  upperY,
-  lowerY,
-  upperRadius,
-  lowerRadius,
-  length,
-  color,
-  emissive,
-}: {
-  side: -1 | 1;
-  x: number;
-  upperY: number;
-  lowerY: number;
-  upperRadius: number;
-  lowerRadius: number;
-  length: number;
-  color: string;
-  emissive: string;
-}) {
-  return (
-    <group position={[side * x, 0, 0]}>
-      <mesh position={[0, upperY, 0]}>
-        <capsuleGeometry args={[upperRadius, length, 8, 16]} />
-        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.48} transparent opacity={0.28} />
-      </mesh>
-      <mesh position={[0, lowerY, 0]}>
-        <capsuleGeometry args={[lowerRadius, length, 8, 16]} />
-        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.4} transparent opacity={0.22} />
-      </mesh>
-      <mesh position={[0, (upperY + lowerY) / 2, 0]}>
-        <sphereGeometry args={[upperRadius * 1.08, 12, 12]} />
-        <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.42} transparent opacity={0.28} />
-      </mesh>
+    <group ref={rootRef} onPointerMove={onPointerMove} onPointerOut={onPointerOut} onPointerDown={onPointerDown}>
+      <primitive object={cloned} />
     </group>
   );
 }
 
-function AvatarRig({ regionById, selectedRegionId, onSelectRegion, morph, heightScale }: AvatarRigProps) {
-  const rootRef = useRef<THREE.Group>(null);
-  const shoulderWidth = 0.66 * morph.shoulderScale;
-  const chestWidth = 0.48 * ((morph.shoulderScale + morph.waistScale) / 2);
-  const waistWidth = 0.34 * morph.waistScale;
-  const hipWidth = 0.45 * morph.hipScale;
-  const armRadius = 0.11 * morph.armScale;
-  const legRadius = 0.14 * morph.legScale;
-  const torsoDepth = 0.28 + (morph.hipScale - 1) * 0.06;
-
-  useFrame((state) => {
-    if (!rootRef.current) return;
-    const t = state.clock.getElapsedTime();
-    rootRef.current.position.y = Math.sin(t * 1.35) * 0.03;
-    rootRef.current.rotation.y = Math.sin(t * 0.54) * 0.06;
-    rootRef.current.rotation.x = Math.sin(t * 0.72) * 0.03;
-  });
-
-  const regionShapes: RegionShape[] = [
-    { id: "SHOULDERS", position: [0, 1.52, 0], scale: [shoulderWidth, 0.16 * morph.torsoScale, 0.36], kind: "capsule" },
-    { id: "CHEST", position: [0, 1.12, 0.02], scale: [chestWidth, 0.5 * morph.torsoScale, torsoDepth], kind: "capsule" },
-    { id: "BACK", position: [0, 1.08, -0.08], scale: [chestWidth, 0.48 * morph.torsoScale, torsoDepth], kind: "capsule" },
-    { id: "CORE", position: [0, 0.64, 0], scale: [waistWidth, 0.46 * morph.torsoScale, torsoDepth * 0.92], kind: "capsule" },
-    { id: "GLUTES", position: [0, 0.16, -0.02], scale: [hipWidth, 0.3 * morph.torsoScale, torsoDepth * 1.05], kind: "capsule" },
-    { id: "ARMS", position: [0.86, 0.9, 0], scale: [armRadius, 0.96 * morph.torsoScale, 0.22], kind: "capsule" },
-    { id: "QUADS", position: [0.17, -0.36, 0.02], scale: [legRadius, 0.92 * morph.legScale, 0.28], kind: "capsule" },
-    { id: "HAMSTRINGS", position: [0.17, -0.56, -0.08], scale: [legRadius, 0.9 * morph.legScale, 0.28], kind: "capsule" },
-  ];
-
+function FallbackFigure() {
   return (
-    <group ref={rootRef} scale={[1, heightScale, 1]}>
-      <mesh position={[0, 1.92, 0]}>
-        <sphereGeometry args={[0.19 * (0.96 + morph.torsoScale * 0.08), 28, 28]} />
-        <meshStandardMaterial color="#8cecff" emissive="#8e6de4" emissiveIntensity={0.62} transparent opacity={0.32} />
+    <group>
+      <mesh position={[0, 1.7, 0]}>
+        <sphereGeometry args={[0.24, 24, 24]} />
+        <meshStandardMaterial color="#8be9ff" emissive="#8e6ee8" emissiveIntensity={0.6} transparent opacity={0.3} />
       </mesh>
-
-      <mesh position={[0, 1.77, 0.06]} scale={[0.8, 0.45, 0.8]}>
-        <sphereGeometry args={[0.12, 18, 18]} />
-        <meshStandardMaterial color="#8cecff" emissive="#6ddaff" emissiveIntensity={0.48} transparent opacity={0.2} />
+      <mesh position={[0, 0.9, 0]} scale={[0.92, 1.65, 0.52]}>
+        <capsuleGeometry args={[0.34, 0.92, 10, 18]} />
+        <meshStandardMaterial color="#7fe9ff" emissive="#58d5ff" emissiveIntensity={0.5} transparent opacity={0.26} />
       </mesh>
-
-      <mesh position={[0, 1.74, 0]} scale={[0.24 * morph.torsoScale, 0.22 * morph.torsoScale, 0.24]}>
-        <cylinderGeometry args={[0.42, 0.48, 1, 18]} />
-        <meshStandardMaterial color="#8cf2ff" emissive="#62d6ff" emissiveIntensity={0.5} transparent opacity={0.25} />
+      <mesh position={[-0.56, 0.75, 0]} scale={[0.22, 1.34, 0.22]}>
+        <capsuleGeometry args={[0.35, 1, 8, 14]} />
+        <meshStandardMaterial color="#84dfff" emissive="#85a8ff" emissiveIntensity={0.42} transparent opacity={0.22} />
       </mesh>
-
-      <mesh position={[0, 0.76, 0]} scale={[0.028, 2.32, 0.028]}>
-        <cylinderGeometry args={[1, 1, 1, 12]} />
-        <meshStandardMaterial color="#dfa1ff" emissive="#d68eff" emissiveIntensity={0.85} transparent opacity={0.52} />
+      <mesh position={[0.56, 0.75, 0]} scale={[0.22, 1.34, 0.22]}>
+        <capsuleGeometry args={[0.35, 1, 8, 14]} />
+        <meshStandardMaterial color="#84dfff" emissive="#85a8ff" emissiveIntensity={0.42} transparent opacity={0.22} />
       </mesh>
-
-      <mesh position={[0, 1.05, 0]} scale={[chestWidth * 1.08, 0.62 * morph.torsoScale, torsoDepth * 1.4]}>
-        <capsuleGeometry args={[0.42, 0.86, 10, 18]} />
-        <meshStandardMaterial color="#89efff" emissive="#5edaff" emissiveIntensity={0.5} transparent opacity={0.22} />
+      <mesh position={[-0.2, -0.5, 0]} scale={[0.26, 1.6, 0.24]}>
+        <capsuleGeometry args={[0.36, 1.2, 8, 14]} />
+        <meshStandardMaterial color="#7fd2ff" emissive="#b58dff" emissiveIntensity={0.4} transparent opacity={0.22} />
       </mesh>
-
-      <mesh position={[0, 0.5, 0]} scale={[waistWidth * 1.12, 0.5 * morph.torsoScale, torsoDepth * 1.3]}>
-        <capsuleGeometry args={[0.35, 0.7, 10, 18]} />
-        <meshStandardMaterial color="#98deff" emissive="#7f89ff" emissiveIntensity={0.32} transparent opacity={0.18} />
+      <mesh position={[0.2, -0.5, 0]} scale={[0.26, 1.6, 0.24]}>
+        <capsuleGeometry args={[0.36, 1.2, 8, 14]} />
+        <meshStandardMaterial color="#7fd2ff" emissive="#b58dff" emissiveIntensity={0.4} transparent opacity={0.22} />
       </mesh>
-
-      <mesh position={[0, 0.12, -0.03]} scale={[hipWidth * 1.08, 0.44 * morph.torsoScale, torsoDepth * 1.55]}>
-        <capsuleGeometry args={[0.38, 0.5, 10, 18]} />
-        <meshStandardMaterial color="#8ed8ff" emissive="#c88cff" emissiveIntensity={0.34} transparent opacity={0.2} />
-      </mesh>
-
-      <LimbVisual side={-1} x={0.66 * morph.shoulderScale} upperY={0.96} lowerY={0.42} upperRadius={armRadius} lowerRadius={armRadius * 0.88} length={0.42 * morph.torsoScale} color="#7fe4ff" emissive="#7bc5ff" />
-      <LimbVisual side={1} x={0.66 * morph.shoulderScale} upperY={0.96} lowerY={0.42} upperRadius={armRadius} lowerRadius={armRadius * 0.88} length={0.42 * morph.torsoScale} color="#7fe4ff" emissive="#7bc5ff" />
-
-      <LimbVisual side={-1} x={0.2 * morph.hipScale} upperY={-0.26} lowerY={-0.92} upperRadius={legRadius} lowerRadius={legRadius * 0.82} length={0.58 * morph.legScale} color="#86dbff" emissive="#9b8eff" />
-      <LimbVisual side={1} x={0.2 * morph.hipScale} upperY={-0.26} lowerY={-0.92} upperRadius={legRadius} lowerRadius={legRadius * 0.82} length={0.58 * morph.legScale} color="#86dbff" emissive="#9b8eff" />
-
-      {regionShapes.map((shape) => {
-        const region = regionById.get(shape.id);
-        if (!region) return null;
-        if (shape.id === "ARMS") {
-          return (
-            <group key={shape.id}>
-              <RegionMesh shape={{ ...shape, position: [-shape.position[0], shape.position[1], 0] }} region={region} selected={selectedRegionId === shape.id} onSelect={onSelectRegion} />
-              <RegionMesh shape={shape} region={region} selected={selectedRegionId === shape.id} onSelect={onSelectRegion} />
-            </group>
-          );
-        }
-        if (shape.id === "QUADS" || shape.id === "HAMSTRINGS") {
-          return (
-            <group key={shape.id}>
-              <RegionMesh shape={{ ...shape, position: [-shape.position[0], shape.position[1], shape.position[2]] }} region={region} selected={selectedRegionId === shape.id} onSelect={onSelectRegion} />
-              <RegionMesh shape={shape} region={region} selected={selectedRegionId === shape.id} onSelect={onSelectRegion} />
-            </group>
-          );
-        }
-        return <RegionMesh key={shape.id} shape={shape} region={region} selected={selectedRegionId === shape.id} onSelect={onSelectRegion} />;
-      })}
     </group>
   );
 }
 
 export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, input }: BodyRecoveryDiagramProps) {
-  const [selectedRegionId, setSelectedRegionId] = useState<BodyRegionSignal["id"] | null>(null);
+  const [surface, setSurface] = useState<"FRONT" | "BACK">("FRONT");
+  const [selectedRegionId, setSelectedRegionId] = useState<RegionId | null>(null);
+  const [hoveredRegionId, setHoveredRegionId] = useState<RegionId | null>(null);
+  const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
+  const [regionCenters, setRegionCenters] = useState<RegionCenterMap>({});
   const regionById = useMemo(() => new Map(view.regions.map((region) => [region.id, region])), [view.regions]);
   const morph = useMemo(() => deriveAvatarMorphParams(input, view, null), [input, view]);
   const selectedRegion = selectedRegionId ? regionById.get(selectedRegionId) ?? null : null;
   const selectedInsight = selectedRegionId ? insights[selectedRegionId] : undefined;
   const selectedRoute = selectedRegion ? buildRecoveryRoute(selectedRegion, activityCodename) : null;
-  const heightScale = clamp(0.84 + (input.heightCm - 160) / 120 + (morph.legScale - 1) * 0.2, 0.8, 1.5);
   const widthSignal = Math.round((morph.shoulderScale * 0.34 + morph.waistScale * 0.33 + morph.hipScale * 0.33) * 100);
+  const heightSignal = Math.round(clamp(84 + (input.heightCm - 160) * 0.52 + (morph.legScale - 1) * 18, 80, 152));
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(MODEL_URL, { method: "HEAD" });
+        if (!cancelled) setModelAvailable(response.ok);
+      } catch {
+        if (!cancelled) setModelAvailable(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <section className="border border-cyan-500/50 bg-black p-4 font-mono sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xs tracking-[0.22em] text-cyan-500">3D BODY AVATAR</h2>
         <div className="flex items-center gap-2">
-          <p className="text-[10px] tracking-[0.16em] text-cyan-500/90">IDLE ACTIVE</p>
+          <button
+            type="button"
+            onClick={() => setSurface("FRONT")}
+            className={`border px-2 py-1 text-[10px] tracking-[0.14em] ${surface === "FRONT" ? "border-cyan-300 text-cyan-100" : "border-cyan-500/40 text-cyan-300"}`}
+          >
+            FRONT
+          </button>
+          <button
+            type="button"
+            onClick={() => setSurface("BACK")}
+            className={`border px-2 py-1 text-[10px] tracking-[0.14em] ${surface === "BACK" ? "border-cyan-300 text-cyan-100" : "border-cyan-500/40 text-cyan-300"}`}
+          >
+            BACK
+          </button>
           {selectedRegionId ? (
             <button type="button" onClick={() => setSelectedRegionId(null)} className="border border-cyan-500/40 px-2 py-1 text-[10px] tracking-[0.14em] text-cyan-300">
               RESET VIEW
@@ -306,23 +337,40 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, inp
 
       <div className="mt-4 border border-cyan-500/30 p-2">
         <div className="h-[560px] w-full overflow-hidden border border-cyan-500/20">
-          <Canvas camera={{ position: [0, 0.95, 4.65], fov: 38 }} gl={{ antialias: true }}>
+          <Canvas camera={{ position: [0, 1.08, 3.42], fov: 34 }} gl={{ antialias: true }}>
             <color attach="background" args={["#02070c"]} />
-            <fog attach="fog" args={["#02070c", 5, 9.5]} />
-            <ambientLight intensity={0.42} />
-            <pointLight position={[1.8, 2.6, 3.8]} intensity={1.2} color="#84ecff" />
-            <pointLight position={[-2.2, 1.4, -3.2]} intensity={0.5} color="#d7a7ff" />
-            <AvatarRig
-              regionById={regionById}
-              selectedRegionId={selectedRegionId}
-              onSelectRegion={(id) => setSelectedRegionId((current) => (current === id ? null : id))}
-              morph={morph}
-              heightScale={heightScale}
-            />
-            <CameraController selectedRegionId={selectedRegionId} />
+            <fog attach="fog" args={["#02070c", 4.8, 9]} />
+            <ambientLight intensity={0.5} />
+            <directionalLight position={[2.6, 3.1, 2.4]} intensity={1.05} color="#8beeff" />
+            <directionalLight position={[-2.8, 1.6, -3.2]} intensity={0.42} color="#c49dff" />
+            <pointLight position={[0, 0.6, 2.1]} intensity={0.44} color="#6de2ff" />
+            <pointLight position={[0, 1.2, -2.2]} intensity={0.24} color="#ae8fff" />
+            <Suspense fallback={null}>
+              {modelAvailable ? (
+                <AvatarModel
+                  modelUrl={MODEL_URL}
+                  morph={morph}
+                  surface={surface}
+                  selectedRegionId={selectedRegionId}
+                  hoveredRegionId={hoveredRegionId}
+                  regionById={regionById}
+                  onRegionHover={setHoveredRegionId}
+                  onRegionSelect={(regionId) => setSelectedRegionId((current) => (current === regionId ? null : regionId))}
+                  onRegionCenters={setRegionCenters}
+                />
+              ) : (
+                <FallbackFigure />
+              )}
+            </Suspense>
+            <CameraController surface={surface} selectedRegionId={selectedRegionId} regionCenters={regionCenters} />
           </Canvas>
         </div>
         <p className="mt-2 text-[10px] tracking-[0.14em] text-cyan-500/85">CLICK A MUSCLE REGION TO ZOOM | RE-CLICK TO CLOSE</p>
+        {modelAvailable === false ? (
+          <p className="mt-2 border border-cyan-500/30 px-2 py-1 text-[10px] tracking-[0.12em] text-cyan-300/90">
+            MODEL NOT FOUND. PLACE `human-avatar.glb` IN `app/public/anatomy/` FOR REALISTIC CHARACTER RENDER.
+          </p>
+        ) : null}
       </div>
 
       <AnimatePresence>
@@ -380,7 +428,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, inp
             { label: "STRENGTH", value: `${view.development.strengthPct}%` },
             { label: "CONDITIONING", value: `${view.development.conditioningPct}%` },
             { label: "AVATAR WIDTH", value: `${widthSignal}%`, tone: "subtle" },
-            { label: "AVATAR HEIGHT", value: `${Math.round(heightScale * 100)}%`, tone: "subtle" },
+            { label: "AVATAR HEIGHT", value: `${heightSignal}%`, tone: "subtle" },
             { label: "AVATAR CONFIDENCE", value: `${Math.round(morph.confidencePct)}%`, tone: "subtle" },
           ]}
         />
@@ -388,3 +436,4 @@ export function BodyRecoveryDiagram({ view, insights = {}, activityCodename, inp
     </section>
   );
 }
+
