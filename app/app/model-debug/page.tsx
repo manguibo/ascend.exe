@@ -235,7 +235,7 @@ export default function ModelDebugPage() {
         <p className="text-sm text-cyan-200/90">
           Last sample:{" "}
           {lastSample
-            ? `${lastSample.meshName} | UV(${lastSample.uv.u.toFixed(4)}, ${lastSample.uv.v.toFixed(4)}) | px(${lastSample.x}, ${lastSample.y}) | ${lastSample.hex} | RGBA(${lastSample.rgba.r},${lastSample.rgba.g},${lastSample.rgba.b},${lastSample.rgba.a}) | ${lastSample.orientation}`
+            ? `${lastSample.meshName} | UV(${lastSample.uv.u.toFixed(4)}, ${lastSample.uv.v.toFixed(4)}) | px(${lastSample.x}, ${lastSample.y}) | ${lastSample.hex} | RGBA(${lastSample.rgba?.r ?? "-"},${lastSample.rgba?.g ?? "-"},${lastSample.rgba?.b ?? "-"},${lastSample.rgba?.a ?? "-"}) | ${lastSample.orientation ?? "-"}`
             : "none yet"}
         </p>
       </section>
