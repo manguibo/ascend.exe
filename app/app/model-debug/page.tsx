@@ -23,7 +23,18 @@ const MASK_URL = "/anatomy/ascend_muscle_id_clean.png";
 const DEFAULT_MODEL_COLOR = new Color("#8ec5ff");
 
 const HEX_TO_MUSCLE_NAME: Record<string, string> = {
-  // Fill in with your actual mapping.
+  "#FF7F00": "Shoulders",
+  "#FFFF00": "Biceps",
+  "#7FFF00": "Triceps",
+  "#00FF00": "Forearms",
+  "#00FF7F": "Core",
+  "#00FFFF": "Quads",
+  "#007FFF": "Hamstrings",
+  "#0000FF": "Glutes",
+  "#7F00FF": "Calves",
+  "#FF00FF": "Lats",
+  "#FF007F": "Traps",
+  "#FFFFFF": "Fingers",
 };
 
 type DebugGltf = GLTF & {
@@ -31,13 +42,13 @@ type DebugGltf = GLTF & {
 };
 
 type LastSample = {
-  meshName: string;
-  uv: { u: number; v: number };
-  x: number;
-  y: number;
-  rgba: { r: number; g: number; b: number; a: number };
-  hex: string;
-  orientation: "uvToCanvas" | "rawCanvas";
+  meshName?: string;
+  uv?: { u: number; v: number };
+  x?: number;
+  y?: number;
+  rgba?: { r: number; g: number; b: number; a: number };
+  hex?: string;
+  orientation?: "uvToCanvas" | "rawCanvas";
   muscleName: string | null;
 };
 
@@ -177,11 +188,13 @@ function AvatarModel({
     const orientation: LastSample["orientation"] = useRawCanvas ? "rawCanvas" : "uvToCanvas";
     const [r, g, b, a] = chosen;
     const hex = toHexColor(r, g, b);
-    const muscleName = HEX_TO_MUSCLE_NAME[hex.toLowerCase()] ?? null;
-    const meshName = hit.object.name || "(unnamed-mesh)";
+    const muscleName = HEX_TO_MUSCLE_NAME[hex.toUpperCase()] ?? null;
+    const rawMeshName = hit.object.name || "(unnamed-mesh)";
+    const meshName = muscleName ?? rawMeshName;
 
     console.log("[model-debug] sample", {
       meshName,
+      rawMeshName,
       uv: { u, v },
       x,
       y,
@@ -235,7 +248,7 @@ export default function ModelDebugPage() {
         <p className="text-sm text-cyan-200/90">
           Last sample:{" "}
           {lastSample
-            ? `${lastSample.meshName} | UV(${lastSample.uv.u.toFixed(4)}, ${lastSample.uv.v.toFixed(4)}) | px(${lastSample.x}, ${lastSample.y}) | ${lastSample.hex} | RGBA(${lastSample.rgba?.r ?? "-"},${lastSample.rgba?.g ?? "-"},${lastSample.rgba?.b ?? "-"},${lastSample.rgba?.a ?? "-"}) | ${lastSample.orientation ?? "-"}`
+            ? `${lastSample.meshName ?? "-"} | UV(${lastSample.uv?.u?.toFixed(4) ?? "-"}, ${lastSample.uv?.v?.toFixed(4) ?? "-"}) | px(${lastSample.x ?? "-"}, ${lastSample.y ?? "-"}) | ${lastSample.hex ?? "-"} | RGBA(${lastSample.rgba?.r ?? "-"},${lastSample.rgba?.g ?? "-"},${lastSample.rgba?.b ?? "-"},${lastSample.rgba?.a ?? "-"}) | ${lastSample.orientation ?? "-"}`
             : "none yet"}
         </p>
       </section>
