@@ -1,85 +1,66 @@
 "use client";
 
-import { Canvas, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, type ThreeEvent, useLoader } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
-import { Suspense, useMemo, useRef, useState } from "react";
-import { Color, Group, LinearFilter, Mesh, MeshStandardMaterial, Object3D, Texture, Vector2 } from "three";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ClampToEdgeWrapping,
+  Color,
+  Group,
+  LinearFilter,
+  Mesh,
+  MeshStandardMaterial,
+  NearestFilter,
+  NoColorSpace,
+  Texture,
+  TextureLoader,
+  Vector2,
+} from "three";
 import type { GLTF } from "three-stdlib";
 
-type MuscleEntry = {
-  id: number;
-  name: string;
-};
-
-const MODEL_URL = "/anatomy/human-avatar.glb";
+const MODEL_URL = "/models/human-avatar.glb";
+const MASK_URL = "/anatomy/ascend_muscle_id_clean.png";
 const DEFAULT_MODEL_COLOR = new Color("#8ec5ff");
-const MASK_BACKGROUND_MAX = 6;
-const MASK_ID_TOLERANCE = 14;
-const MASK_SAMPLE_OFFSETS: readonly [number, number][] = [
-  [0, 0],
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-];
-const ID_TO_MUSCLE: MuscleEntry[] = [
-  { id: 15, name: "calves" },
-  { id: 35, name: "quads" },
-  { id: 55, name: "hamstrings" },
-  { id: 75, name: "glutes" },
-  { id: 95, name: "forearms" },
-  { id: 115, name: "biceps" },
-  { id: 135, name: "triceps" },
-  { id: 145, name: "chest" },
-  { id: 160, name: "core" },
-  { id: 170, name: "shoulders" },
-  { id: 200, name: "traps" },
-  { id: 225, name: "lats" },
-  { id: 240, name: "fingers" },
-];
+
+const HEX_TO_MUSCLE_NAME: Record<string, string> = {
+  // Fill in with your actual mapping.
+};
 
 type DebugGltf = GLTF & {
   scene: Group;
 };
 
-type SampleResult = {
-  sampledId: number;
-  resolvedName: string;
+type LastSample = {
+  meshName: string;
+  uv: { u: number; v: number };
+  x: number;
+  y: number;
+  hex: string;
+  muscleName: string | null;
 };
 
-type SampleCandidate = {
-  texture: Texture;
-  uv: Vector2;
+type CanvasSampler = {
+  ctx: CanvasRenderingContext2D;
+  width: number;
+  height: number;
 };
 
-function resolveMuscleName(sampledId: number): string {
-  const exact = ID_TO_MUSCLE.find((entry) => entry.id === sampledId);
-  if (exact) {
-    return exact.name;
-  }
-
-  let nearest = ID_TO_MUSCLE[0];
-  for (const entry of ID_TO_MUSCLE) {
-    if (Math.abs(entry.id - sampledId) < Math.abs(nearest.id - sampledId)) {
-      nearest = entry;
-    }
-  }
-
-  if (Math.abs(nearest.id - sampledId) <= MASK_ID_TOLERANCE) {
-    return `${nearest.name} (nearest ${nearest.id})`;
-  }
-
-  return "unknown";
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
-function readMaskIdFromTexture(texture: Texture, uv: Vector2): number | null {
+function toHexColor(r: number, g: number, b: number): string {
+  const toHex = (channel: number) => channel.toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function createCanvasSampler(texture: Texture): CanvasSampler | null {
   const image = texture.image as
     | HTMLImageElement
     | HTMLCanvasElement
     | ImageBitmap
     | OffscreenCanvas
     | undefined;
-
   if (!image) {
     return null;
   }
@@ -90,68 +71,44 @@ function readMaskIdFromTexture(texture: Texture, uv: Vector2): number | null {
     return null;
   }
 
-  const samplingCanvas = document.createElement("canvas");
-  samplingCanvas.width = width;
-  samplingCanvas.height = height;
-  const ctx = samplingCanvas.getContext("2d", { willReadFrequently: true });
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) {
     return null;
   }
 
   ctx.drawImage(image as CanvasImageSource, 0, 0, width, height);
-
-  const transformedUv = uv.clone();
-  texture.transformUv(transformedUv);
-
-  const u = Math.min(0.999999, Math.max(0, transformedUv.x));
-  const v = Math.min(0.999999, Math.max(0, transformedUv.y));
-  const pixelX = Math.floor(u * width);
-  const pixelY = Math.floor((1 - v) * height);
-  const samples: number[] = [];
-  MASK_SAMPLE_OFFSETS.forEach(([dx, dy]) => {
-    const sampleX = Math.max(0, Math.min(width - 1, pixelX + dx));
-    const sampleY = Math.max(0, Math.min(height - 1, pixelY + dy));
-    const [red] = ctx.getImageData(sampleX, sampleY, 1, 1).data;
-    if (red > MASK_BACKGROUND_MAX) {
-      samples.push(red);
-    }
-  });
-
-  if (samples.length === 0) {
-    return null;
-  }
-
-  samples.sort((a, b) => a - b);
-  return samples[Math.floor(samples.length / 2)] ?? null;
-}
-
-function findMaskTextureOnObject(object: Object3D): Texture | null {
-  let node: Object3D | null = object;
-  while (node) {
-    if (node instanceof Mesh) {
-      const material = node.material;
-      const materialList = Array.isArray(material) ? material : [material];
-      for (const mat of materialList) {
-        if (mat instanceof MeshStandardMaterial && mat.map) {
-          return mat.map;
-        }
-      }
-    }
-    node = node.parent;
-  }
-
-  return null;
+  return { ctx, width, height };
 }
 
 function AvatarModel({
   onSample,
 }: {
-  onSample: (result: SampleResult) => void;
+  onSample: (sample: LastSample) => void;
 }) {
   const gltf = useGLTF(MODEL_URL) as DebugGltf;
+  const idMaskTexture = useLoader(TextureLoader, MASK_URL);
+  const samplingTexture = useMemo(() => {
+    const texture = idMaskTexture.clone();
+    texture.colorSpace = NoColorSpace;
+    texture.minFilter = NearestFilter;
+    texture.magFilter = NearestFilter;
+    texture.generateMipmaps = false;
+    texture.flipY = false;
+    texture.wrapS = ClampToEdgeWrapping;
+    texture.wrapT = ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    return texture;
+  }, [idMaskTexture]);
   const clonedScene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
+  const samplerRef = useRef<CanvasSampler | null>(null);
   const reusableUv = useRef(new Vector2());
-  const fallbackMaskTextureRef = useRef<Texture | null>(null);
+
+  useEffect(() => {
+    samplerRef.current = createCanvasSampler(samplingTexture);
+  }, [samplingTexture]);
 
   useMemo(() => {
     clonedScene.traverse((obj) => {
@@ -159,72 +116,83 @@ function AvatarModel({
         return;
       }
 
-      const material = obj.material;
       const applyColor = (mat: unknown) => {
         if (!(mat instanceof MeshStandardMaterial)) {
           return;
         }
         mat.color = DEFAULT_MODEL_COLOR.clone();
+        mat.transparent = false;
         if (mat.map) {
           mat.map.minFilter = LinearFilter;
           mat.map.magFilter = LinearFilter;
           mat.map.needsUpdate = true;
-          fallbackMaskTextureRef.current ??= mat.map;
         }
       };
 
-      if (Array.isArray(material)) {
-        material.forEach(applyColor);
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach(applyColor);
       } else {
-        applyColor(material);
+        applyColor(obj.material);
       }
     });
   }, [clonedScene]);
 
   const handlePointerDown = (event: ThreeEvent<PointerEvent>) => {
-    const candidates: SampleCandidate[] = [];
-    event.intersections.forEach((intersection) => {
-      if (!intersection.uv) return;
-      const foundTexture = findMaskTextureOnObject(intersection.object) ?? fallbackMaskTextureRef.current;
-      if (!foundTexture) return;
-      candidates.push({ texture: foundTexture, uv: intersection.uv.clone() });
-    });
-
-    if (event.uv) {
-      const foundTexture = findMaskTextureOnObject(event.object) ?? fallbackMaskTextureRef.current;
-      if (foundTexture) {
-        candidates.unshift({ texture: foundTexture, uv: event.uv.clone() });
-      }
-    }
-
-    for (const candidate of candidates) {
-      reusableUv.current.copy(candidate.uv);
-      const sampledId = readMaskIdFromTexture(candidate.texture, reusableUv.current);
-      if (sampledId === null) {
-        continue;
-      }
-
-      const resolvedName = resolveMuscleName(sampledId);
-      console.log("[model-debug] muscle sample", { id: sampledId, muscle: resolvedName });
-      onSample({ sampledId, resolvedName });
+    const sampler = samplerRef.current;
+    if (!sampler) {
+      console.warn("[model-debug] ID mask sampler not ready.");
       return;
     }
 
-    console.warn("No valid UV + mask texture sampling candidate was found for this click.");
+    const hit = event.intersections.find((intersection) => intersection.uv && intersection.object instanceof Mesh);
+    if (!hit?.uv) {
+      console.warn("[model-debug] No mesh UV available at click.");
+      return;
+    }
+
+    reusableUv.current.copy(hit.uv);
+    samplingTexture.transformUv(reusableUv.current);
+
+    const u = clamp(reusableUv.current.x, 0, 0.999999);
+    const v = clamp(reusableUv.current.y, 0, 0.999999);
+    const x = Math.floor(u * sampler.width);
+    const y = Math.floor((1 - v) * sampler.height);
+    const [r, g, b] = sampler.ctx.getImageData(x, y, 1, 1).data;
+    const hex = toHexColor(r, g, b);
+    const muscleName = HEX_TO_MUSCLE_NAME[hex.toLowerCase()] ?? null;
+    const meshName = hit.object.name || "(unnamed-mesh)";
+
+    console.log("[model-debug] sample", {
+      meshName,
+      uv: { u, v },
+      x,
+      y,
+      hex,
+      muscleName,
+    });
+
+    onSample({
+      meshName,
+      uv: { u, v },
+      x,
+      y,
+      hex,
+      muscleName,
+    });
   };
 
   return <primitive object={clonedScene} onPointerDown={handlePointerDown} />;
 }
 
 export default function ModelDebugPage() {
-  const [lastSample, setLastSample] = useState<SampleResult | null>(null);
+  const [lastSample, setLastSample] = useState<LastSample | null>(null);
 
   return (
     <main className="min-h-screen bg-[#050a14] text-cyan-100">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6">
-        <h1 className="text-xl font-semibold tracking-wide">Model Debug: Muscle ID Picker</h1>
+        <h1 className="text-xl font-semibold tracking-wide">Model Debug: UV ID Mask Picker</h1>
         <p className="text-sm text-cyan-200/80">
-          Click on the model to sample the baseColor texture mask at hit UV and print the ID mapping in the console.
+          Click the avatar to sample `ascend_muscle_id_clean.png` by UV and log mesh name, UV, pixel coords, and hex color.
         </p>
         <div className="h-[72vh] w-full overflow-hidden rounded-md border border-cyan-400/30 bg-black">
           <Canvas camera={{ position: [0, 1.3, 2.2], fov: 45 }}>
@@ -240,7 +208,9 @@ export default function ModelDebugPage() {
         </div>
         <p className="text-sm text-cyan-200/90">
           Last sample:{" "}
-          {lastSample ? `ID ${lastSample.sampledId} -> ${lastSample.resolvedName}` : "none yet"}
+          {lastSample
+            ? `${lastSample.meshName} | UV(${lastSample.uv.u.toFixed(4)}, ${lastSample.uv.v.toFixed(4)}) | px(${lastSample.x}, ${lastSample.y}) | ${lastSample.hex}`
+            : "none yet"}
         </p>
       </section>
     </main>
