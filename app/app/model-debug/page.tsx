@@ -35,7 +35,9 @@ type LastSample = {
   uv: { u: number; v: number };
   x: number;
   y: number;
+  rgba: { r: number; g: number; b: number; a: number };
   hex: string;
+  orientation: "uvToCanvas" | "rawCanvas";
   muscleName: string | null;
 };
 
@@ -52,6 +54,10 @@ function clamp(value: number, min: number, max: number): number {
 function toHexColor(r: number, g: number, b: number): string {
   const toHex = (channel: number) => channel.toString(16).padStart(2, "0");
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function isBlack(r: number, g: number, b: number): boolean {
+  return r === 0 && g === 0 && b === 0;
 }
 
 function createCanvasSampler(texture: Texture): CanvasSampler | null {
@@ -156,8 +162,20 @@ function AvatarModel({
     const u = clamp(reusableUv.current.x, 0, 0.999999);
     const v = clamp(reusableUv.current.y, 0, 0.999999);
     const x = Math.floor(u * sampler.width);
-    const y = Math.floor((1 - v) * sampler.height);
-    const [r, g, b] = sampler.ctx.getImageData(x, y, 1, 1).data;
+    const yUvToCanvas = Math.floor((1 - v) * sampler.height);
+    const yRawCanvas = Math.floor(v * sampler.height);
+
+    const uvToCanvasRgba = sampler.ctx.getImageData(x, yUvToCanvas, 1, 1).data;
+    const rawCanvasRgba = sampler.ctx.getImageData(x, yRawCanvas, 1, 1).data;
+
+    const uvToCanvasScore = (isBlack(uvToCanvasRgba[0], uvToCanvasRgba[1], uvToCanvasRgba[2]) ? 0 : 2) + (uvToCanvasRgba[3] > 0 ? 1 : 0);
+    const rawCanvasScore = (isBlack(rawCanvasRgba[0], rawCanvasRgba[1], rawCanvasRgba[2]) ? 0 : 2) + (rawCanvasRgba[3] > 0 ? 1 : 0);
+
+    const useRawCanvas = rawCanvasScore > uvToCanvasScore;
+    const chosen = useRawCanvas ? rawCanvasRgba : uvToCanvasRgba;
+    const y = useRawCanvas ? yRawCanvas : yUvToCanvas;
+    const orientation: LastSample["orientation"] = useRawCanvas ? "rawCanvas" : "uvToCanvas";
+    const [r, g, b, a] = chosen;
     const hex = toHexColor(r, g, b);
     const muscleName = HEX_TO_MUSCLE_NAME[hex.toLowerCase()] ?? null;
     const meshName = hit.object.name || "(unnamed-mesh)";
@@ -167,7 +185,13 @@ function AvatarModel({
       uv: { u, v },
       x,
       y,
+      rgba: { r, g, b, a },
       hex,
+      orientation,
+      comparison: {
+        uvToCanvas: { y: yUvToCanvas, rgba: Array.from(uvToCanvasRgba) },
+        rawCanvas: { y: yRawCanvas, rgba: Array.from(rawCanvasRgba) },
+      },
       muscleName,
     });
 
@@ -176,7 +200,9 @@ function AvatarModel({
       uv: { u, v },
       x,
       y,
+      rgba: { r, g, b, a },
       hex,
+      orientation,
       muscleName,
     });
   };
@@ -209,7 +235,7 @@ export default function ModelDebugPage() {
         <p className="text-sm text-cyan-200/90">
           Last sample:{" "}
           {lastSample
-            ? `${lastSample.meshName} | UV(${lastSample.uv.u.toFixed(4)}, ${lastSample.uv.v.toFixed(4)}) | px(${lastSample.x}, ${lastSample.y}) | ${lastSample.hex}`
+            ? `${lastSample.meshName} | UV(${lastSample.uv.u.toFixed(4)}, ${lastSample.uv.v.toFixed(4)}) | px(${lastSample.x}, ${lastSample.y}) | ${lastSample.hex} | RGBA(${lastSample.rgba.r},${lastSample.rgba.g},${lastSample.rgba.b},${lastSample.rgba.a}) | ${lastSample.orientation}`
             : "none yet"}
         </p>
       </section>
