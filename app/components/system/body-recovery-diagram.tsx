@@ -107,6 +107,29 @@ const STRESS_YELLOW = new THREE.Color("#ffe066");
 const STRESS_ORANGE = new THREE.Color("#ff922e");
 const STRESS_RED = new THREE.Color("#ff3b1f");
 const STRESS_MIN_VISUAL = 0.14;
+const MASK_ID_MATCH_TOLERANCE = 8;
+
+const VISUAL_REGION_MASK_ID: Record<VisualRegionId, number> = {
+  CALVES: 15,
+  QUADS: 35,
+  HAMSTRINGS: 55,
+  GLUTES: 75,
+  FOREARMS: 95,
+  BICEPS: 115,
+  TRICEPS: 135,
+  CHEST: 145,
+  ABS: 160,
+  SHOULDERS: 170,
+  TRAPS: 200,
+  LATS: 225,
+  FINGERS: 240,
+};
+
+const VISUAL_REGION_TO_INDEX: Record<VisualRegionId, number> = Object.fromEntries(
+  VISUAL_REGION_ORDER.map((regionId, index) => [regionId, index]),
+) as Record<VisualRegionId, number>;
+
+const textureSamplingCanvas = new WeakMap<THREE.Texture, { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; width: number; height: number }>();
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -121,6 +144,102 @@ function getStressTone(stressLevel: number): THREE.Color {
     color.lerpColors(STRESS_ORANGE, STRESS_RED, (normalized - 0.5) / 0.5);
   }
   return color;
+}
+
+function resolveVisualRegionFromMaskId(sampledId: number): VisualRegionId | null {
+  let bestRegion: VisualRegionId | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (const regionId of VISUAL_REGION_ORDER) {
+    const targetId = VISUAL_REGION_MASK_ID[regionId];
+    const distance = Math.abs(sampledId - targetId);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestRegion = regionId;
+    }
+  }
+
+  if (bestRegion && bestDistance <= MASK_ID_MATCH_TOLERANCE) {
+    return bestRegion;
+  }
+  return null;
+}
+
+function getTextureSamplingContext(texture: THREE.Texture): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; width: number; height: number } | null {
+  const existing = textureSamplingCanvas.get(texture);
+  if (existing) {
+    return existing;
+  }
+
+  const image = texture.image as
+    | HTMLImageElement
+    | HTMLCanvasElement
+    | ImageBitmap
+    | OffscreenCanvas
+    | undefined;
+  if (!image) {
+    return null;
+  }
+
+  const width = (image as { width: number }).width;
+  const height = (image as { height: number }).height;
+  if (!width || !height) {
+    return null;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) {
+    return null;
+  }
+
+  ctx.drawImage(image as CanvasImageSource, 0, 0, width, height);
+  const created = { canvas, ctx, width, height };
+  textureSamplingCanvas.set(texture, created);
+  return created;
+}
+
+function sampleMaskIdAtUv(texture: THREE.Texture, uv: THREE.Vector2): number | null {
+  const sampling = getTextureSamplingContext(texture);
+  if (!sampling) {
+    return null;
+  }
+
+  const transformedUv = uv.clone();
+  texture.transformUv(transformedUv);
+  const u = clamp(transformedUv.x, 0, 0.999999);
+  const v = clamp(transformedUv.y, 0, 0.999999);
+  const x = Math.floor(u * sampling.width);
+  const y = Math.floor((1 - v) * sampling.height);
+  const pixel = sampling.ctx.getImageData(x, y, 1, 1).data;
+  return pixel[0] ?? null;
+}
+
+function resolveRegionFromUvMask(object: THREE.Object3D, uv: THREE.Vector2 | undefined): VisualRegionId | null {
+  if (!uv) {
+    return null;
+  }
+
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    const texture = node.userData?.maskTexture as THREE.Texture | undefined;
+    if (texture) {
+      const sampledId = sampleMaskIdAtUv(texture, uv);
+      if (typeof sampledId === "number") {
+        return resolveVisualRegionFromMaskId(sampledId);
+      }
+      return null;
+    }
+    node = node.parent;
+  }
+
+  return null;
+}
+
+function buildVisualStressArray(stressedRegionLevels: Partial<Record<BaseRegionId, number>>): number[] {
+  return VISUAL_REGION_ORDER.map((regionId) => getVisualStressLevel(stressedRegionLevels, regionId));
 }
 
 function getVisualStressLevel(stressedRegionLevels: Partial<Record<BaseRegionId, number>>, regionId: VisualRegionId): number {
@@ -226,6 +345,110 @@ function inferRegionFromHitPoint(point: THREE.Vector3, object: THREE.Object3D): 
   return "CALVES";
 }
 
+function createMaskHeatMaterial(maskTexture: THREE.Texture): THREE.ShaderMaterial {
+  const stressLevels = buildVisualStressArray({});
+  return new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.FrontSide,
+    uniforms: {
+      uMaskMap: { value: maskTexture },
+      uStressLevels: { value: stressLevels },
+      uSelectedIndex: { value: -1 },
+      uHoveredIndex: { value: -1 },
+      uBaseColor: { value: BASE_MODEL_BLUE.clone() },
+      uStressMinVisual: { value: STRESS_MIN_VISUAL },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vNormalW;
+      void main() {
+        vUv = uv;
+        vNormalW = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uMaskMap;
+      uniform float uStressLevels[13];
+      uniform float uSelectedIndex;
+      uniform float uHoveredIndex;
+      uniform vec3 uBaseColor;
+      uniform float uStressMinVisual;
+      varying vec2 vUv;
+      varying vec3 vNormalW;
+
+      float resolveRegionIndex(float maskId) {
+        if (abs(maskId - 240.0) <= 8.0) return 0.0;   // FINGERS
+        if (abs(maskId - 95.0) <= 8.0) return 1.0;    // FOREARMS
+        if (abs(maskId - 115.0) <= 8.0) return 2.0;   // BICEPS
+        if (abs(maskId - 135.0) <= 8.0) return 3.0;   // TRICEPS
+        if (abs(maskId - 170.0) <= 8.0) return 4.0;   // SHOULDERS
+        if (abs(maskId - 225.0) <= 8.0) return 5.0;   // LATS
+        if (abs(maskId - 200.0) <= 8.0) return 6.0;   // TRAPS
+        if (abs(maskId - 145.0) <= 8.0) return 7.0;   // CHEST
+        if (abs(maskId - 160.0) <= 8.0) return 8.0;   // ABS
+        if (abs(maskId - 75.0) <= 8.0) return 9.0;    // GLUTES
+        if (abs(maskId - 35.0) <= 8.0) return 10.0;   // QUADS
+        if (abs(maskId - 55.0) <= 8.0) return 11.0;   // HAMSTRINGS
+        if (abs(maskId - 15.0) <= 8.0) return 12.0;   // CALVES
+        return -1.0;
+      }
+
+      float getStressByIndex(float idx) {
+        if (idx < 0.0) return 0.0;
+        if (idx < 0.5) return uStressLevels[0];
+        if (idx < 1.5) return uStressLevels[1];
+        if (idx < 2.5) return uStressLevels[2];
+        if (idx < 3.5) return uStressLevels[3];
+        if (idx < 4.5) return uStressLevels[4];
+        if (idx < 5.5) return uStressLevels[5];
+        if (idx < 6.5) return uStressLevels[6];
+        if (idx < 7.5) return uStressLevels[7];
+        if (idx < 8.5) return uStressLevels[8];
+        if (idx < 9.5) return uStressLevels[9];
+        if (idx < 10.5) return uStressLevels[10];
+        if (idx < 11.5) return uStressLevels[11];
+        return uStressLevels[12];
+      }
+
+      vec3 getStressTone(float stress) {
+        vec3 yellow = vec3(1.0, 0.878, 0.4);
+        vec3 orange = vec3(1.0, 0.573, 0.18);
+        vec3 red = vec3(1.0, 0.231, 0.122);
+        float clamped = clamp(stress, 0.0, 1.0);
+        if (clamped <= 0.5) {
+          return mix(yellow, orange, clamped / 0.5);
+        }
+        return mix(orange, red, (clamped - 0.5) / 0.5);
+      }
+
+      void main() {
+        float maskId = texture2D(uMaskMap, vUv).r * 255.0;
+        float idx = resolveRegionIndex(maskId);
+        float stress = getStressByIndex(idx);
+        bool selected = idx >= 0.0 && abs(idx - uSelectedIndex) < 0.5;
+        bool hovered = idx >= 0.0 && abs(idx - uHoveredIndex) < 0.5;
+        bool stressed = stress >= uStressMinVisual;
+        vec3 tone = stressed ? getStressTone(stress) : uBaseColor;
+        float heatMix = stressed ? clamp(stress * 0.82, 0.0, 0.9) : 0.0;
+        vec3 color = mix(uBaseColor, tone, heatMix);
+
+        if (hovered) {
+          color = mix(color, vec3(0.65, 0.92, 1.0), 0.32);
+        }
+        if (selected) {
+          color = mix(color, vec3(1.0, 0.98, 0.86), 0.4);
+        }
+
+        float lighting = 0.5 + 0.5 * max(dot(vNormalW, normalize(vec3(0.22, 0.82, 0.42))), 0.0);
+        float alpha = selected ? 0.84 : hovered ? 0.78 : stressed ? 0.7 : 0.62;
+        gl_FragColor = vec4(color * lighting, alpha);
+      }
+    `,
+  });
+}
+
 function AvatarModel({
   modelUrl,
   morph,
@@ -273,6 +496,13 @@ function AvatarModel({
         mesh.material = mesh.material.clone();
       }
 
+      const activeMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const maskTexture = activeMaterial instanceof THREE.MeshStandardMaterial ? activeMaterial.map : null;
+      if (maskTexture) {
+        maskTexture.needsUpdate = true;
+        mesh.userData.maskTexture = maskTexture;
+      }
+
       const hasOverlay = mesh.children.some((child) => child.userData?.overlayPart === true);
       if (!hasOverlay) {
         const shellMaterial = new THREE.MeshStandardMaterial({
@@ -301,6 +531,16 @@ function AvatarModel({
         edgeLines.userData.overlayKind = "edges";
         edgeLines.userData.regionId = regionId;
         mesh.add(edgeLines);
+
+        if (maskTexture && !mesh.children.some((child) => child.userData?.overlayKind === "mask-heat")) {
+          const heatOverlay = new THREE.Mesh(mesh.geometry, createMaskHeatMaterial(maskTexture));
+          heatOverlay.scale.setScalar(CYBER_SHELL_SCALE + 0.0018);
+          heatOverlay.renderOrder = 4;
+          heatOverlay.userData.overlayPart = true;
+          heatOverlay.userData.overlayKind = "mask-heat";
+          heatOverlay.userData.maskTexture = maskTexture;
+          mesh.add(heatOverlay);
+        }
       }
     });
   }, [cloned]);
@@ -327,6 +567,7 @@ function AvatarModel({
       if (!regionId) return;
       const region = regionById.get(regionId);
       if (!region) return;
+      const isDynamicMesh = Boolean(mesh.userData.dynamicRegion);
 
       const selected = selectedRegionId === regionId;
       const hovered = hoveredRegionId === regionId;
@@ -334,11 +575,12 @@ function AvatarModel({
       const isStressed = stressLevel >= STRESS_MIN_VISUAL;
       const activeTone = isStressed ? getStressTone(stressLevel) : BASE_MODEL_BLUE;
 
-      material.color.copy(activeTone.clone().multiplyScalar(0.34));
+      const baseTone = isDynamicMesh ? BASE_MODEL_BLUE : activeTone;
+      material.color.copy(baseTone.clone().multiplyScalar(0.34));
       material.transparent = true;
-      material.opacity = selected ? 0.78 : hovered ? 0.66 : isStressed ? 0.58 : 0.5;
-      material.emissive.copy(selected ? activeTone : activeTone.clone().multiplyScalar(hovered ? 0.74 : 0.42));
-      material.emissiveIntensity = selected ? 1.8 + stressLevel * 0.6 : hovered ? 1.2 + stressLevel * 0.4 : 0.76 + stressLevel * 0.32;
+      material.opacity = isDynamicMesh ? 0.38 : selected ? 0.78 : hovered ? 0.66 : isStressed ? 0.58 : 0.5;
+      material.emissive.copy(selected ? activeTone : baseTone.clone().multiplyScalar(hovered ? 0.74 : 0.42));
+      material.emissiveIntensity = isDynamicMesh ? 0.38 : selected ? 1.8 + stressLevel * 0.6 : hovered ? 1.2 + stressLevel * 0.4 : 0.76 + stressLevel * 0.32;
       material.roughness = 0.28;
       material.metalness = 0.84;
 
@@ -362,24 +604,36 @@ function AvatarModel({
             edgeLine.opacity = selected ? 0.98 : hovered ? 0.8 : 0.58 + stressLevel * 0.24;
           }
         }
+        if (child.userData?.overlayKind === "mask-heat") {
+          const heatMesh = child as THREE.Mesh;
+          const heatMaterial = heatMesh.material;
+          const heatShader = Array.isArray(heatMaterial) ? heatMaterial[0] : heatMaterial;
+          if (heatShader instanceof THREE.ShaderMaterial) {
+            heatShader.uniforms.uStressLevels.value = buildVisualStressArray(stressedRegionLevels);
+            heatShader.uniforms.uSelectedIndex.value = selectedRegionId ? VISUAL_REGION_TO_INDEX[selectedRegionId] : -1;
+            heatShader.uniforms.uHoveredIndex.value = hoveredRegionId ? VISUAL_REGION_TO_INDEX[hoveredRegionId] : -1;
+          }
+        }
       });
     });
   });
 
   const onPointerMove = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
+    const maskRegion = resolveRegionFromUvMask(event.object, event.uv);
     const staticRegion = resolveRegionIdFromObject(event.object);
     const dynamicRegion = hasDynamicRegionRouting(event.object) ? inferRegionFromHitPoint(event.point, event.object) : null;
-    onRegionHover(dynamicRegion ?? staticRegion);
+    onRegionHover(maskRegion ?? dynamicRegion ?? staticRegion);
   };
 
   const onPointerOut = () => onRegionHover(null);
 
-  const onPointerDown = (event: ThreeEvent<MouseEvent>) => {
+  const onPointerDown = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
+    const maskRegion = resolveRegionFromUvMask(event.object, event.uv);
     const staticRegion = resolveRegionIdFromObject(event.object);
     const dynamicRegion = hasDynamicRegionRouting(event.object) ? inferRegionFromHitPoint(event.point, event.object) : null;
-    const regionId = dynamicRegion ?? staticRegion;
+    const regionId = maskRegion ?? dynamicRegion ?? staticRegion;
     if (regionId) onRegionSelect(regionId);
   };
 
