@@ -820,6 +820,20 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
       }),
     );
   }, [baseRegionById]);
+  const effectiveStressLevels = useMemo(() => {
+    if (Object.keys(stressedRegionLevels).length > 0) {
+      return stressedRegionLevels;
+    }
+
+    return Object.fromEntries(
+      view.regions.map((region) => {
+        const loadScore = clamp(region.loadPct / 100, 0, 1);
+        const readinessPenalty = clamp((100 - region.readinessPct) / 100, 0, 1);
+        const stress = clamp(loadScore * 0.65 + readinessPenalty * 0.35, 0, 1);
+        return [region.id, Number(stress.toFixed(3))];
+      }),
+    ) as Partial<Record<BaseRegionId, number>>;
+  }, [stressedRegionLevels, view.regions]);
 
   const morph = useMemo(() => deriveAvatarMorphParams(input, view, null), [input, view]);
   const selectedRegion = selectedRegionId ? regionById.get(selectedRegionId) ?? null : null;
@@ -830,7 +844,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
   const recoveryRecommendation = useMemo(() => {
     const ranked = VISUAL_REGION_ORDER.map((visualId) => ({
       visualId,
-      stress: getVisualStressLevel(stressedRegionLevels, visualId),
+      stress: getVisualStressLevel(effectiveStressLevels, visualId),
       etaDays: insights[VISUAL_TO_BASE_REGION[visualId]]?.etaDays ?? null,
     }))
       .sort((a, b) => b.stress - a.stress);
@@ -846,7 +860,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
       etaHours,
       stressPct: Math.round(top.stress * 100),
     };
-  }, [insights, stressedRegionLevels]);
+  }, [effectiveStressLevels, insights]);
 
   useEffect(() => {
     let cancelled = false;
@@ -897,7 +911,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
                   morph={morph}
                   selectedRegionId={selectedRegionId}
                   hoveredRegionId={hoveredRegionId}
-                  stressedRegionLevels={stressedRegionLevels}
+                  stressedRegionLevels={effectiveStressLevels}
                   regionById={regionById}
                   onRegionHover={setHoveredRegionId}
                   onRegionSelect={(regionId) => setSelectedRegionId((current) => (current === regionId ? null : regionId))}
@@ -907,7 +921,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
                   morph={morph}
                   selectedRegionId={selectedRegionId}
                   hoveredRegionId={hoveredRegionId}
-                  stressedRegionLevels={stressedRegionLevels}
+                  stressedRegionLevels={effectiveStressLevels}
                   regionById={regionById}
                   onRegionHover={setHoveredRegionId}
                   onRegionSelect={(regionId) => setSelectedRegionId((current) => (current === regionId ? null : regionId))}
