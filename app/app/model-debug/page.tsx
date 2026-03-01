@@ -26,6 +26,7 @@ const HEX_TO_MUSCLE_NAME: Record<string, string> = {
   "#ff0000": "Chest",
   "#ff3600": "Shoulders",
   "#ff0036": "Traps",
+  "#ff00ff": "Lats",
   "#ffff00": "Biceps",
   "#36ff00": "Triceps",
   "#00ff00": "Forearms",
