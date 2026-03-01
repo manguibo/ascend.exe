@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { BodyRecoveryView, BodyRegionInsight, BodyRegionSignal } from "@/lib/system/body-recovery";
@@ -101,6 +101,7 @@ const VISUAL_TO_BASE_REGION: Record<VisualRegionId, BaseRegionId> = {
 };
 
 const MODEL_URL = "/anatomy/human-avatar.glb";
+const MASK_URL = "/anatomy/ascend_muscle_id_clean.png";
 const CYBER_SHELL_SCALE = 1.008;
 const BASE_MODEL_BLUE = new THREE.Color("#4b8dff");
 const STRESS_YELLOW = new THREE.Color("#ffe066");
@@ -108,34 +109,22 @@ const STRESS_ORANGE = new THREE.Color("#ff922e");
 const STRESS_RED = new THREE.Color("#ff3b1f");
 const STRESS_MIN_VISUAL = 0.14;
 
-const VISUAL_REGION_MASK_ID: Record<VisualRegionId, number> = {
-  CALVES: 15,
-  QUADS: 35,
-  HAMSTRINGS: 55,
-  GLUTES: 75,
-  FOREARMS: 95,
-  BICEPS: 115,
-  TRICEPS: 135,
-  CHEST: 145,
-  ABS: 160,
-  SHOULDERS: 170,
-  TRAPS: 200,
-  LATS: 225,
-  FINGERS: 240,
+const HEX_TO_VISUAL_REGION: Record<string, VisualRegionId> = {
+  "#ff0000": "CHEST",
+  "#ff3600": "SHOULDERS",
+  "#ff0036": "TRAPS",
+  "#ff00ff": "LATS",
+  "#ffff00": "BICEPS",
+  "#36ff00": "TRICEPS",
+  "#00ff00": "FOREARMS",
+  "#00ff36": "ABS",
+  "#ffffff": "FINGERS",
+  "#00ffff": "QUADS",
+  "#0000ff": "GLUTES",
+  "#0036ff": "HAMSTRINGS",
+  "#3600ff": "CALVES",
 };
 const MASK_BACKGROUND_MAX = 6;
-const MASK_ID_TOLERANCE = 14;
-const MASK_SAMPLE_OFFSETS: readonly [number, number][] = [
-  [0, 0],
-  [1, 0],
-  [-1, 0],
-  [0, 1],
-  [0, -1],
-  [1, 1],
-  [1, -1],
-  [-1, 1],
-  [-1, -1],
-];
 
 const VISUAL_REGION_TO_INDEX: Record<VisualRegionId, number> = Object.fromEntries(
   VISUAL_REGION_ORDER.map((regionId, index) => [regionId, index]),
@@ -194,22 +183,9 @@ function getTextureSamplingContext(texture: THREE.Texture): { canvas: HTMLCanvas
   return created;
 }
 
-function resolveRegionFromMaskId(sampledId: number): VisualRegionId | null {
-  if (sampledId <= MASK_BACKGROUND_MAX) {
-    return null;
-  }
-
-  let matchedRegion: VisualRegionId | null = null;
-  let closestDistance = Number.POSITIVE_INFINITY;
-  for (const regionId of VISUAL_REGION_ORDER) {
-    const distance = Math.abs(sampledId - VISUAL_REGION_MASK_ID[regionId]);
-    if (distance < closestDistance) {
-      closestDistance = distance;
-      matchedRegion = regionId;
-    }
-  }
-
-  return closestDistance <= MASK_ID_TOLERANCE ? matchedRegion : null;
+function toHexColor(r: number, g: number, b: number): string {
+  const toHex = (channel: number) => channel.toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
 function sampleMaskRegionAtUv(texture: THREE.Texture, uv: THREE.Vector2): VisualRegionId | null {
@@ -223,70 +199,40 @@ function sampleMaskRegionAtUv(texture: THREE.Texture, uv: THREE.Vector2): Visual
   const u = clamp(transformedUv.x, 0, 0.999999);
   const v = clamp(transformedUv.y, 0, 0.999999);
   const x = Math.floor(u * sampling.width);
-  const y = Math.floor((1 - v) * sampling.height);
+  const yUvToCanvas = Math.floor((1 - v) * sampling.height);
+  const yRawCanvas = Math.floor(v * sampling.height);
+  const uvToCanvasRgba = sampling.ctx.getImageData(x, yUvToCanvas, 1, 1).data;
+  const rawCanvasRgba = sampling.ctx.getImageData(x, yRawCanvas, 1, 1).data;
+  const uvToCanvasScore =
+    ((uvToCanvasRgba[0] <= MASK_BACKGROUND_MAX && uvToCanvasRgba[1] <= MASK_BACKGROUND_MAX && uvToCanvasRgba[2] <= MASK_BACKGROUND_MAX) ? 0 : 2) +
+    (uvToCanvasRgba[3] > 0 ? 1 : 0);
+  const rawCanvasScore =
+    ((rawCanvasRgba[0] <= MASK_BACKGROUND_MAX && rawCanvasRgba[1] <= MASK_BACKGROUND_MAX && rawCanvasRgba[2] <= MASK_BACKGROUND_MAX) ? 0 : 2) +
+    (rawCanvasRgba[3] > 0 ? 1 : 0);
+  const chosen = rawCanvasScore > uvToCanvasScore ? rawCanvasRgba : uvToCanvasRgba;
+  const [r, g, b, a] = chosen;
+  if (a <= 3) {
+    return null;
+  }
 
-  const votes = new Map<VisualRegionId, number>();
-  MASK_SAMPLE_OFFSETS.forEach(([dx, dy]) => {
-    const px = Math.max(0, Math.min(sampling.width - 1, x + dx));
-    const py = Math.max(0, Math.min(sampling.height - 1, y + dy));
-    const [r, , , a] = sampling.ctx.getImageData(px, py, 1, 1).data;
-    if (a <= 3) {
-      return;
-    }
-
-    const sampledRegion = resolveRegionFromMaskId(r);
-    if (!sampledRegion) {
-      return;
-    }
-
-    votes.set(sampledRegion, (votes.get(sampledRegion) ?? 0) + 1);
-  });
-
-  let winner: VisualRegionId | null = null;
-  let winnerVotes = 0;
-  votes.forEach((count, regionId) => {
-    if (count > winnerVotes) {
-      winnerVotes = count;
-      winner = regionId;
-    }
-  });
-
-  return winner;
+  const hex = toHexColor(r, g, b).toLowerCase();
+  return HEX_TO_VISUAL_REGION[hex] ?? null;
 }
 
-function resolveRegionFromUvMaskCandidates(object: THREE.Object3D, uvCandidates: readonly (THREE.Vector2 | undefined)[]): VisualRegionId | null {
+function resolveRegionFromUvMaskCandidates(maskTexture: THREE.Texture, uvCandidates: readonly (THREE.Vector2 | undefined)[]): VisualRegionId | null {
   if (uvCandidates.length === 0) {
     return null;
   }
 
-  let node: THREE.Object3D | null = object;
-  while (node) {
-    const texture = node.userData?.maskTexture as THREE.Texture | undefined;
-    if (texture) {
-      for (const uv of uvCandidates) {
-        if (!uv) continue;
-        const sampledRegion = sampleMaskRegionAtUv(texture, uv);
-        if (sampledRegion) {
-          return sampledRegion;
-        }
-      }
-      return null;
+  for (const uv of uvCandidates) {
+    if (!uv) continue;
+    const sampledRegion = sampleMaskRegionAtUv(maskTexture, uv);
+    if (sampledRegion) {
+      return sampledRegion;
     }
-    node = node.parent;
   }
 
   return null;
-}
-
-function hasMaskTextureInHierarchy(object: THREE.Object3D): boolean {
-  let node: THREE.Object3D | null = object;
-  while (node) {
-    if (node.userData?.maskTexture) {
-      return true;
-    }
-    node = node.parent;
-  }
-  return false;
 }
 
 function buildVisualStressArray(stressedRegionLevels: Partial<Record<BaseRegionId, number>>): number[] {
@@ -322,38 +268,6 @@ function buildRecoveryRoute(region: VisualRegionSignal, activityCodename?: strin
   };
 }
 
-function inferRegionFromName(name: string): VisualRegionId | null {
-  const key = name.toUpperCase();
-  if (!key) return null;
-
-  if (key.includes("FINGER") || key.includes("HAND")) return "FINGERS";
-  if (key.includes("FOREARM")) return "FOREARMS";
-  if (key.includes("BICEP")) return "BICEPS";
-  if (key.includes("TRICEP")) return "TRICEPS";
-  if (key.includes("SHOULDER") || key.includes("DELTOID") || key.includes("CLAVICLE")) return "SHOULDERS";
-  if (key.includes("LAT")) return "LATS";
-  if (key.includes("TRAP")) return "TRAPS";
-  if (key.includes("CHEST") || key.includes("PECT") || key.includes("RIBCAGE")) return "CHEST";
-  if (key.includes("ABS") || key.includes("ABDOMEN") || key.includes("OBLIQUE") || key.includes("TORSO")) return "ABS";
-  if (key.includes("GLUTE") || key.includes("PELVIS") || key.includes("BUTT")) return "GLUTES";
-  if (key.includes("QUAD") || key.includes("THIGH")) return "QUADS";
-  if (key.includes("HAMSTRING")) return "HAMSTRINGS";
-  if (key.includes("CALF") || key.includes("SHIN")) return "CALVES";
-  return null;
-}
-
-function inferRegionFromPosition(position: THREE.Vector3): VisualRegionId {
-  if (position.y > 1.42) return "TRAPS";
-  if (position.y > 1.2) return "SHOULDERS";
-  if (Math.abs(position.x) > 0.62 && position.y > 0.84) return position.z >= 0 ? "BICEPS" : "TRICEPS";
-  if (Math.abs(position.x) > 0.62 && position.y > 0.48) return "FOREARMS";
-  if (Math.abs(position.x) > 0.7 && position.y > 0.3) return "FINGERS";
-  if (position.y > 0.9) return position.z >= 0 ? "CHEST" : "LATS";
-  if (position.y > 0.38) return position.z >= 0 ? "ABS" : "GLUTES";
-  if (position.y > -0.32) return position.z >= 0 ? "QUADS" : "HAMSTRINGS";
-  return "CALVES";
-}
-
 function resolveRegionIdFromObject(object: THREE.Object3D): VisualRegionId | null {
   let node: THREE.Object3D | null = object;
   while (node) {
@@ -362,38 +276,6 @@ function resolveRegionIdFromObject(object: THREE.Object3D): VisualRegionId | nul
     node = node.parent;
   }
   return null;
-}
-
-function hasDynamicRegionRouting(object: THREE.Object3D): boolean {
-  let node: THREE.Object3D | null = object;
-  while (node) {
-    if (Boolean(node.userData?.dynamicRegion)) return true;
-    node = node.parent;
-  }
-  return false;
-}
-
-function inferRegionFromHitPoint(point: THREE.Vector3, object: THREE.Object3D): VisualRegionId | null {
-  const bounds = new THREE.Box3().setFromObject(object);
-  const size = bounds.getSize(new THREE.Vector3());
-  if (size.y <= 0.001) return null;
-
-  const normalize = (value: number, min: number, span: number) => (span <= 0.001 ? 0.5 : (value - min) / span);
-  const nx = normalize(point.x, bounds.min.x, size.x);
-  const ny = normalize(point.y, bounds.min.y, size.y);
-  const nz = normalize(point.z, bounds.min.z, size.z);
-  const xDist = Math.abs(nx - 0.5);
-  const frontFacing = nz >= 0.5;
-
-  if (xDist > 0.45 && ny > 0.42 && ny <= 0.56) return "FINGERS";
-  if (xDist > 0.4 && ny > 0.56 && ny <= 0.68) return "FOREARMS";
-  if (xDist > 0.34 && ny > 0.68 && ny <= 0.82) return frontFacing ? "BICEPS" : "TRICEPS";
-  if (ny > 0.86 && xDist <= 0.18) return "TRAPS";
-  if (ny > 0.8) return "SHOULDERS";
-  if (ny > 0.64 && xDist <= 0.28) return frontFacing ? "CHEST" : "LATS";
-  if (ny > 0.46 && xDist <= 0.24) return frontFacing ? "ABS" : ny > 0.56 ? "LATS" : "GLUTES";
-  if (ny > 0.28 && xDist <= 0.22) return frontFacing ? "QUADS" : "HAMSTRINGS";
-  return "CALVES";
 }
 
 function createMaskHeatMaterial(maskTexture: THREE.Texture): THREE.ShaderMaterial {
@@ -429,22 +311,46 @@ function createMaskHeatMaterial(maskTexture: THREE.Texture): THREE.ShaderMateria
       varying vec2 vUv;
       varying vec3 vNormalW;
 
-      float resolveRegionIndex(float maskId) {
-        if (maskId <= 6.0) return -1.0;
-        if (abs(maskId - 240.0) <= 14.0) return 0.0;   // FINGERS
-        if (abs(maskId - 95.0) <= 14.0) return 1.0;    // FOREARMS
-        if (abs(maskId - 115.0) <= 14.0) return 2.0;   // BICEPS
-        if (abs(maskId - 135.0) <= 14.0) return 3.0;   // TRICEPS
-        if (abs(maskId - 170.0) <= 14.0) return 4.0;   // SHOULDERS
-        if (abs(maskId - 225.0) <= 14.0) return 5.0;   // LATS
-        if (abs(maskId - 200.0) <= 14.0) return 6.0;   // TRAPS
-        if (abs(maskId - 145.0) <= 14.0) return 7.0;   // CHEST
-        if (abs(maskId - 160.0) <= 14.0) return 8.0;   // ABS
-        if (abs(maskId - 75.0) <= 14.0) return 9.0;    // GLUTES
-        if (abs(maskId - 35.0) <= 14.0) return 10.0;   // QUADS
-        if (abs(maskId - 55.0) <= 14.0) return 11.0;   // HAMSTRINGS
-        if (abs(maskId - 15.0) <= 14.0) return 12.0;   // CALVES
-        return -1.0;
+      float colorDistance(vec3 a, vec3 b) {
+        vec3 d = a - b;
+        return dot(d, d);
+      }
+
+      float resolveRegionIndex(vec3 color) {
+        if (color.r <= 0.02 && color.g <= 0.02 && color.b <= 0.02) return -1.0;
+
+        float bestIdx = -1.0;
+        float bestDist = 9999.0;
+
+        float d0 = colorDistance(color, vec3(1.0, 1.0, 1.0)); // FINGERS #ffffff
+        if (d0 < bestDist) { bestDist = d0; bestIdx = 0.0; }
+        float d1 = colorDistance(color, vec3(0.0, 1.0, 0.0)); // FOREARMS #00ff00
+        if (d1 < bestDist) { bestDist = d1; bestIdx = 1.0; }
+        float d2 = colorDistance(color, vec3(1.0, 1.0, 0.0)); // BICEPS #ffff00
+        if (d2 < bestDist) { bestDist = d2; bestIdx = 2.0; }
+        float d3 = colorDistance(color, vec3(0.2118, 1.0, 0.0)); // TRICEPS #36ff00
+        if (d3 < bestDist) { bestDist = d3; bestIdx = 3.0; }
+        float d4 = colorDistance(color, vec3(1.0, 0.2118, 0.0)); // SHOULDERS #ff3600
+        if (d4 < bestDist) { bestDist = d4; bestIdx = 4.0; }
+        float d5 = colorDistance(color, vec3(1.0, 0.0, 1.0)); // LATS #ff00ff
+        if (d5 < bestDist) { bestDist = d5; bestIdx = 5.0; }
+        float d6 = colorDistance(color, vec3(1.0, 0.0, 0.2118)); // TRAPS #ff0036
+        if (d6 < bestDist) { bestDist = d6; bestIdx = 6.0; }
+        float d7 = colorDistance(color, vec3(1.0, 0.0, 0.0)); // CHEST #ff0000
+        if (d7 < bestDist) { bestDist = d7; bestIdx = 7.0; }
+        float d8 = colorDistance(color, vec3(0.0, 1.0, 0.2118)); // ABS #00ff36
+        if (d8 < bestDist) { bestDist = d8; bestIdx = 8.0; }
+        float d9 = colorDistance(color, vec3(0.0, 0.0, 1.0)); // GLUTES #0000ff
+        if (d9 < bestDist) { bestDist = d9; bestIdx = 9.0; }
+        float d10 = colorDistance(color, vec3(0.0, 1.0, 1.0)); // QUADS #00ffff
+        if (d10 < bestDist) { bestDist = d10; bestIdx = 10.0; }
+        float d11 = colorDistance(color, vec3(0.0, 0.2118, 1.0)); // HAMSTRINGS #0036ff
+        if (d11 < bestDist) { bestDist = d11; bestIdx = 11.0; }
+        float d12 = colorDistance(color, vec3(0.2118, 0.0, 1.0)); // CALVES #3600ff
+        if (d12 < bestDist) { bestDist = d12; bestIdx = 12.0; }
+
+        if (bestDist > 0.09) return -1.0;
+        return bestIdx;
       }
 
       float getStressByIndex(float idx) {
@@ -476,8 +382,8 @@ function createMaskHeatMaterial(maskTexture: THREE.Texture): THREE.ShaderMateria
       }
 
       void main() {
-        float maskId = texture2D(uMaskMap, vUv).r * 255.0;
-        float idx = resolveRegionIndex(maskId);
+        vec3 maskColor = texture2D(uMaskMap, vUv).rgb;
+        float idx = resolveRegionIndex(maskColor);
         float stress = getStressByIndex(idx);
         bool selected = idx >= 0.0 && abs(idx - uSelectedIndex) < 0.5;
         bool hovered = idx >= 0.0 && abs(idx - uHoveredIndex) < 0.5;
@@ -513,6 +419,19 @@ function AvatarModel({
 }: AvatarModelProps) {
   const rootRef = useRef<THREE.Group>(null);
   const { scene } = useGLTF(modelUrl);
+  const idMaskTexture = useLoader(THREE.TextureLoader, MASK_URL);
+  const samplingTexture = useMemo(() => {
+    const texture = idMaskTexture.clone();
+    texture.colorSpace = THREE.NoColorSpace;
+    texture.minFilter = THREE.NearestFilter;
+    texture.magFilter = THREE.NearestFilter;
+    texture.generateMipmaps = false;
+    texture.flipY = false;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    return texture;
+  }, [idMaskTexture]);
   const cloned = useMemo(() => scene.clone(true), [scene]);
   const modelFit = useMemo(() => {
     const bounds = new THREE.Box3().setFromObject(cloned);
@@ -533,26 +452,15 @@ function AvatarModel({
       meshNodes.push(node as THREE.Mesh);
     });
 
-    const useDynamicRouting = meshNodes.length <= 1;
-
     meshNodes.forEach((mesh) => {
-      const nameRegion = inferRegionFromName(mesh.name);
-      const fallbackRegion = inferRegionFromPosition(mesh.position);
-      const regionId = useDynamicRouting ? fallbackRegion : nameRegion ?? fallbackRegion;
+      const regionId: VisualRegionId = "ABS";
       mesh.userData.regionId = regionId;
-      mesh.userData.dynamicRegion = useDynamicRouting;
+      mesh.userData.dynamicRegion = true;
 
       if (Array.isArray(mesh.material)) {
         mesh.material = mesh.material.map((item) => item.clone());
       } else if (mesh.material) {
         mesh.material = mesh.material.clone();
-      }
-
-      const activeMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      const maskTexture = activeMaterial instanceof THREE.MeshStandardMaterial ? activeMaterial.map : null;
-      if (maskTexture) {
-        maskTexture.needsUpdate = true;
-        mesh.userData.maskTexture = maskTexture;
       }
 
       const hasOverlay = mesh.children.some((child) => child.userData?.overlayPart === true);
@@ -585,24 +493,18 @@ function AvatarModel({
         edgeLines.raycast = () => null;
         mesh.add(edgeLines);
 
-        if (maskTexture && !mesh.children.some((child) => child.userData?.overlayKind === "mask-heat")) {
-          const heatOverlay = new THREE.Mesh(mesh.geometry, createMaskHeatMaterial(maskTexture));
+        if (!mesh.children.some((child) => child.userData?.overlayKind === "mask-heat")) {
+          const heatOverlay = new THREE.Mesh(mesh.geometry, createMaskHeatMaterial(samplingTexture));
           heatOverlay.scale.setScalar(CYBER_SHELL_SCALE + 0.0018);
           heatOverlay.renderOrder = 4;
           heatOverlay.userData.overlayPart = true;
           heatOverlay.userData.overlayKind = "mask-heat";
-          heatOverlay.userData.maskTexture = maskTexture;
           heatOverlay.userData.dynamicRegion = true;
           mesh.add(heatOverlay);
         }
-
-        if (maskTexture) {
-          shell.userData.maskTexture = maskTexture;
-          shell.userData.dynamicRegion = true;
-        }
       }
     });
-  }, [cloned]);
+  }, [cloned, samplingTexture]);
 
   useFrame((state) => {
     const root = rootRef.current;
@@ -682,19 +584,12 @@ function AvatarModel({
     if (event.object.userData?.overlayKind === "edges") {
       return;
     }
-    const hasMaskTexture = hasMaskTextureInHierarchy(event.object);
     const uvCandidates = [
       event.uv,
       ...event.intersections.map((intersection) => intersection.uv),
     ];
-    const maskRegion = resolveRegionFromUvMaskCandidates(event.object, uvCandidates);
-    if (hasMaskTexture) {
-      onRegionHover(maskRegion);
-      return;
-    }
-    const staticRegion = resolveRegionIdFromObject(event.object);
-    const dynamicRegion = hasDynamicRegionRouting(event.object) ? inferRegionFromHitPoint(event.point, event.object) : null;
-    onRegionHover(maskRegion ?? dynamicRegion ?? staticRegion);
+    const maskRegion = resolveRegionFromUvMaskCandidates(samplingTexture, uvCandidates);
+    onRegionHover(maskRegion);
   };
 
   const onPointerOut = () => onRegionHover(null);
@@ -704,20 +599,12 @@ function AvatarModel({
     if (event.object.userData?.overlayKind === "edges") {
       return;
     }
-    const hasMaskTexture = hasMaskTextureInHierarchy(event.object);
     const uvCandidates = [
       event.uv,
       ...event.intersections.map((intersection) => intersection.uv),
     ];
-    const maskRegion = resolveRegionFromUvMaskCandidates(event.object, uvCandidates);
-    if (hasMaskTexture) {
-      if (maskRegion) onRegionSelect(maskRegion);
-      return;
-    }
-    const staticRegion = resolveRegionIdFromObject(event.object);
-    const dynamicRegion = hasDynamicRegionRouting(event.object) ? inferRegionFromHitPoint(event.point, event.object) : null;
-    const regionId = maskRegion ?? dynamicRegion ?? staticRegion;
-    if (regionId) onRegionSelect(regionId);
+    const maskRegion = resolveRegionFromUvMaskCandidates(samplingTexture, uvCandidates);
+    if (maskRegion) onRegionSelect(maskRegion);
   };
 
   return (
