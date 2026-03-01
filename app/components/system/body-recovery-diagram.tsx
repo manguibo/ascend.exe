@@ -123,6 +123,9 @@ const VISUAL_REGION_MASK_ID: Record<VisualRegionId, number> = {
   LATS: 225,
   FINGERS: 240,
 };
+const VISUAL_REGION_MASK_VALUES = VISUAL_REGION_ORDER.map((regionId) => VISUAL_REGION_MASK_ID[regionId]);
+const MASK_BACKGROUND_MAX = 6;
+const MASK_ID_MAX_DISTANCE = 20;
 
 const VISUAL_REGION_TO_INDEX: Record<VisualRegionId, number> = Object.fromEntries(
   VISUAL_REGION_ORDER.map((regionId, index) => [regionId, index]),
@@ -143,22 +146,6 @@ function getStressTone(stressLevel: number): THREE.Color {
     color.lerpColors(STRESS_ORANGE, STRESS_RED, (normalized - 0.5) / 0.5);
   }
   return color;
-}
-
-function resolveVisualRegionFromMaskId(sampledId: number): VisualRegionId {
-  let bestRegion: VisualRegionId = VISUAL_REGION_ORDER[0];
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (const regionId of VISUAL_REGION_ORDER) {
-    const targetId = VISUAL_REGION_MASK_ID[regionId];
-    const distance = Math.abs(sampledId - targetId);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestRegion = regionId;
-    }
-  }
-
-  return bestRegion;
 }
 
 function getTextureSamplingContext(texture: THREE.Texture): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; width: number; height: number } | null {
@@ -197,7 +184,7 @@ function getTextureSamplingContext(texture: THREE.Texture): { canvas: HTMLCanvas
   return created;
 }
 
-function sampleMaskIdAtUv(texture: THREE.Texture, uv: THREE.Vector2): number | null {
+function sampleMaskRegionAtUv(texture: THREE.Texture, uv: THREE.Vector2): VisualRegionId | null {
   const sampling = getTextureSamplingContext(texture);
   if (!sampling) {
     return null;
@@ -209,8 +196,59 @@ function sampleMaskIdAtUv(texture: THREE.Texture, uv: THREE.Vector2): number | n
   const v = clamp(transformedUv.y, 0, 0.999999);
   const x = Math.floor(u * sampling.width);
   const y = Math.floor((1 - v) * sampling.height);
-  const pixel = sampling.ctx.getImageData(x, y, 1, 1).data;
-  return pixel[0] ?? null;
+  const offsets: readonly [number, number][] = [
+    [0, 0],
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
+
+  const votes = new Map<VisualRegionId, number>();
+
+  offsets.forEach(([dx, dy]) => {
+    const px = Math.max(0, Math.min(sampling.width - 1, x + dx));
+    const py = Math.max(0, Math.min(sampling.height - 1, y + dy));
+    const [r, g, b, a] = sampling.ctx.getImageData(px, py, 1, 1).data;
+    if (a <= 3) {
+      return;
+    }
+
+    const candidates = [r, g, b, Math.round((r + g + b) / 3), Math.max(r, g, b)];
+    let bestCandidateRegion: VisualRegionId | null = null;
+    let bestCandidateDistance = Number.POSITIVE_INFINITY;
+
+    candidates.forEach((candidateId) => {
+      if (candidateId <= MASK_BACKGROUND_MAX) {
+        return;
+      }
+
+      VISUAL_REGION_MASK_VALUES.forEach((maskId, index) => {
+        const distance = Math.abs(candidateId - maskId);
+        if (distance < bestCandidateDistance) {
+          bestCandidateDistance = distance;
+          bestCandidateRegion = VISUAL_REGION_ORDER[index];
+        }
+      });
+    });
+
+    if (!bestCandidateRegion || bestCandidateDistance > MASK_ID_MAX_DISTANCE) {
+      return;
+    }
+
+    votes.set(bestCandidateRegion, (votes.get(bestCandidateRegion) ?? 0) + 1);
+  });
+
+  let winner: VisualRegionId | null = null;
+  let winnerVotes = 0;
+  votes.forEach((count, regionId) => {
+    if (count > winnerVotes) {
+      winnerVotes = count;
+      winner = regionId;
+    }
+  });
+
+  return winner;
 }
 
 function resolveRegionFromUvMaskCandidates(object: THREE.Object3D, uvCandidates: readonly (THREE.Vector2 | undefined)[]): VisualRegionId | null {
@@ -224,9 +262,9 @@ function resolveRegionFromUvMaskCandidates(object: THREE.Object3D, uvCandidates:
     if (texture) {
       for (const uv of uvCandidates) {
         if (!uv) continue;
-        const sampledId = sampleMaskIdAtUv(texture, uv);
-        if (typeof sampledId === "number") {
-          return resolveVisualRegionFromMaskId(sampledId);
+        const sampledRegion = sampleMaskRegionAtUv(texture, uv);
+        if (sampledRegion) {
+          return sampledRegion;
         }
       }
       return null;
