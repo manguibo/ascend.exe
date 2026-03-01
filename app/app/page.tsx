@@ -7,7 +7,7 @@ import { StatusTile } from "@/components/system/status-tile";
 import { SystemTelemetryPanel } from "@/components/system/system-telemetry-panel";
 import { TacticalReveal } from "@/components/system/tactical-reveal";
 import { PageHeader } from "@/components/system/page-header";
-import { buildBodyRecoveryView, buildBodyRegionInsights } from "@/lib/system/body-recovery";
+import { buildBodyRecoveryView, buildBodyRegionInsights, getRecentStressLevels } from "@/lib/system/body-recovery";
 import { applySessionProfile, sessionProfiles } from "@/lib/system/profiles";
 import { usePerformanceView } from "@/lib/system/use-performance-view";
 import { useSessionHistory } from "@/lib/system/use-session-history";
@@ -27,6 +27,7 @@ export default function Home() {
   const { rankProgress, currentRank, directiveTier, progressEvent, disciplineRiskPct, decayPressurePct, nextAction } = usePerformanceView(snapshot);
   const bodyRecoveryView = buildBodyRecoveryView(input);
   const bodyInsights = buildBodyRegionInsights(bodyRecoveryView, sessionHistory);
+  const stressedRegionLevels = getRecentStressLevels(sessionHistory, 3);
 
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
@@ -47,7 +48,13 @@ export default function Home() {
 
         <TacticalReveal delay={0.07}>
           <section className="mx-auto w-full max-w-5xl">
-            <BodyRecoveryDiagram view={bodyRecoveryView} insights={bodyInsights} activityCodename={snapshot.activity.codename} input={input} />
+            <BodyRecoveryDiagram
+              view={bodyRecoveryView}
+              insights={bodyInsights}
+              stressedRegionLevels={stressedRegionLevels}
+              activityCodename={snapshot.activity.codename}
+              input={input}
+            />
           </section>
         </TacticalReveal>
 

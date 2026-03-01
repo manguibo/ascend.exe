@@ -228,3 +228,51 @@ export function getAverageReadinessPct(view: BodyRecoveryView): number {
   const total = view.regions.reduce((sum, region) => sum + region.readinessPct, 0);
   return Math.round(total / view.regions.length);
 }
+
+export function getRecentStressRegionIds(
+  historyEntries: readonly SessionHistoryEntry[],
+  windowSize = 3,
+  maxRegions = 4,
+): readonly BodyRegionId[] {
+  const stressByRegion = getRecentStressLevels(historyEntries, windowSize);
+  const sorted = Object.entries(stressByRegion)
+    .map(([regionId, score]) => ({ regionId: regionId as BodyRegionId, score }))
+    .filter((entry) => entry.score >= 0.14)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, clamp(maxRegions, 1, regionOrder.length));
+
+  return sorted.map((entry) => entry.regionId);
+}
+
+export function getRecentStressLevels(
+  historyEntries: readonly SessionHistoryEntry[],
+  windowSize = 3,
+): Partial<Record<BodyRegionId, number>> {
+  if (historyEntries.length === 0) {
+    return {};
+  }
+
+  const sliceSize = clamp(windowSize, 1, 10);
+  const recentEntries = historyEntries.slice(-sliceSize);
+  const weightedStress = new Map<BodyRegionId, number>(regionOrder.map((regionId) => [regionId, 0]));
+  let totalWeight = 0;
+
+  recentEntries.forEach((entry, index) => {
+    const weight = 1 + index * 0.4;
+    totalWeight += weight;
+
+    regionOrder.forEach((regionId) => {
+      const readinessRaw = entry.regionReadiness?.[regionId];
+      const readiness = typeof readinessRaw === "number" ? clamp(readinessRaw, 0, 100) : 67;
+      const stress = clamp((67 - readiness) / 67, 0, 1);
+      weightedStress.set(regionId, (weightedStress.get(regionId) ?? 0) + stress * weight);
+    });
+  });
+
+  return Object.fromEntries(
+    regionOrder.map((regionId) => {
+      const score = totalWeight > 0 ? (weightedStress.get(regionId) ?? 0) / totalWeight : 0;
+      return [regionId, clamp(Number(score.toFixed(3)), 0, 1)];
+    }),
+  ) as Partial<Record<BodyRegionId, number>>;
+}
