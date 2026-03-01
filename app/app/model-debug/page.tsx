@@ -23,19 +23,21 @@ const MASK_URL = "/anatomy/ascend_muscle_id_clean.png";
 const DEFAULT_MODEL_COLOR = new Color("#8ec5ff");
 
 const HEX_TO_MUSCLE_NAME: Record<string, string> = {
-  "#FF7F00": "Shoulders",
-  "#FFFF00": "Biceps",
-  "#7FFF00": "Triceps",
-  "#00FF00": "Forearms",
-  "#00FF7F": "Core",
-  "#00FFFF": "Quads",
-  "#007FFF": "Hamstrings",
-  "#0000FF": "Glutes",
-  "#7F00FF": "Calves",
-  "#FF00FF": "Lats",
-  "#FF007F": "Traps",
-  "#FFFFFF": "Fingers",
+  "#ff7f00": "Shoulders",
+  "#ffff00": "Biceps",
+  "#7fff00": "Triceps",
+  "#00ff00": "Forearms",
+  "#00ff7f": "Core",
+  "#00ffff": "Quads",
+  "#007fff": "Hamstrings",
+  "#0000ff": "Glutes",
+  "#7f00ff": "Calves",
+  "#ff00ff": "Lats",
+  "#ff007f": "Traps",
+  "#ffffff": "Fingers",
+  "#ff0000": "Chest",
 };
+const MAX_HEX_MATCH_DISTANCE = 90;
 
 type DebugGltf = GLTF & {
   scene: Group;
@@ -65,6 +67,51 @@ function clamp(value: number, min: number, max: number): number {
 function toHexColor(r: number, g: number, b: number): string {
   const toHex = (channel: number) => channel.toString(16).padStart(2, "0");
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const normalized = hex.trim().toLowerCase();
+  const match = /^#([0-9a-f]{6})$/i.exec(normalized);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    r: Number.parseInt(match[1].slice(0, 2), 16),
+    g: Number.parseInt(match[1].slice(2, 4), 16),
+    b: Number.parseInt(match[1].slice(4, 6), 16),
+  };
+}
+
+function resolveMuscleName(hex: string): string | null {
+  const normalizedHex = hex.toLowerCase();
+  const exact = HEX_TO_MUSCLE_NAME[normalizedHex];
+  if (exact) {
+    return exact;
+  }
+
+  const sourceRgb = hexToRgb(normalizedHex);
+  if (!sourceRgb) {
+    return null;
+  }
+
+  let bestName: string | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const [mappedHex, muscleName] of Object.entries(HEX_TO_MUSCLE_NAME)) {
+    const targetRgb = hexToRgb(mappedHex);
+    if (!targetRgb) continue;
+    const distance = Math.sqrt(
+      (sourceRgb.r - targetRgb.r) ** 2 +
+      (sourceRgb.g - targetRgb.g) ** 2 +
+      (sourceRgb.b - targetRgb.b) ** 2,
+    );
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestName = muscleName;
+    }
+  }
+
+  return bestDistance <= MAX_HEX_MATCH_DISTANCE ? bestName : null;
 }
 
 function isBlack(r: number, g: number, b: number): boolean {
@@ -188,7 +235,7 @@ function AvatarModel({
     const orientation: LastSample["orientation"] = useRawCanvas ? "rawCanvas" : "uvToCanvas";
     const [r, g, b, a] = chosen;
     const hex = toHexColor(r, g, b);
-    const muscleName = HEX_TO_MUSCLE_NAME[hex.toUpperCase()] ?? null;
+    const muscleName = resolveMuscleName(hex);
     const rawMeshName = hit.object.name || "(unnamed-mesh)";
     const meshName = muscleName ?? rawMeshName;
 
