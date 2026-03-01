@@ -13,6 +13,15 @@ type MuscleEntry = {
 
 const MODEL_URL = "/anatomy/human-avatar.glb";
 const DEFAULT_MODEL_COLOR = new Color("#8ec5ff");
+const MASK_BACKGROUND_MAX = 6;
+const MASK_ID_TOLERANCE = 14;
+const MASK_SAMPLE_OFFSETS: readonly [number, number][] = [
+  [0, 0],
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
 const ID_TO_MUSCLE: MuscleEntry[] = [
   { id: 15, name: "calves" },
   { id: 35, name: "quads" },
@@ -51,7 +60,7 @@ function resolveMuscleName(sampledId: number): string {
     }
   }
 
-  if (Math.abs(nearest.id - sampledId) <= 8) {
+  if (Math.abs(nearest.id - sampledId) <= MASK_ID_TOLERANCE) {
     return `${nearest.name} (nearest ${nearest.id})`;
   }
 
@@ -93,9 +102,22 @@ function readMaskIdFromTexture(texture: Texture, uv: Vector2): number | null {
   const v = Math.min(0.999999, Math.max(0, transformedUv.y));
   const pixelX = Math.floor(u * width);
   const pixelY = Math.floor((1 - v) * height);
-  const [red] = ctx.getImageData(pixelX, pixelY, 1, 1).data;
+  const samples: number[] = [];
+  MASK_SAMPLE_OFFSETS.forEach(([dx, dy]) => {
+    const sampleX = Math.max(0, Math.min(width - 1, pixelX + dx));
+    const sampleY = Math.max(0, Math.min(height - 1, pixelY + dy));
+    const [red] = ctx.getImageData(sampleX, sampleY, 1, 1).data;
+    if (red > MASK_BACKGROUND_MAX) {
+      samples.push(red);
+    }
+  });
 
-  return red;
+  if (samples.length === 0) {
+    return null;
+  }
+
+  samples.sort((a, b) => a - b);
+  return samples[Math.floor(samples.length / 2)] ?? null;
 }
 
 function AvatarModel({

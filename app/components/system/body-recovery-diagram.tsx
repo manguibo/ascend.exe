@@ -123,9 +123,19 @@ const VISUAL_REGION_MASK_ID: Record<VisualRegionId, number> = {
   LATS: 225,
   FINGERS: 240,
 };
-const VISUAL_REGION_MASK_VALUES = VISUAL_REGION_ORDER.map((regionId) => VISUAL_REGION_MASK_ID[regionId]);
 const MASK_BACKGROUND_MAX = 6;
-const MASK_ID_MAX_DISTANCE = 20;
+const MASK_ID_TOLERANCE = 14;
+const MASK_SAMPLE_OFFSETS: readonly [number, number][] = [
+  [0, 0],
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+];
 
 const VISUAL_REGION_TO_INDEX: Record<VisualRegionId, number> = Object.fromEntries(
   VISUAL_REGION_ORDER.map((regionId, index) => [regionId, index]),
@@ -184,6 +194,24 @@ function getTextureSamplingContext(texture: THREE.Texture): { canvas: HTMLCanvas
   return created;
 }
 
+function resolveRegionFromMaskId(sampledId: number): VisualRegionId | null {
+  if (sampledId <= MASK_BACKGROUND_MAX) {
+    return null;
+  }
+
+  let matchedRegion: VisualRegionId | null = null;
+  let closestDistance = Number.POSITIVE_INFINITY;
+  for (const regionId of VISUAL_REGION_ORDER) {
+    const distance = Math.abs(sampledId - VISUAL_REGION_MASK_ID[regionId]);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      matchedRegion = regionId;
+    }
+  }
+
+  return closestDistance <= MASK_ID_TOLERANCE ? matchedRegion : null;
+}
+
 function sampleMaskRegionAtUv(texture: THREE.Texture, uv: THREE.Vector2): VisualRegionId | null {
   const sampling = getTextureSamplingContext(texture);
   if (!sampling) {
@@ -196,47 +224,22 @@ function sampleMaskRegionAtUv(texture: THREE.Texture, uv: THREE.Vector2): Visual
   const v = clamp(transformedUv.y, 0, 0.999999);
   const x = Math.floor(u * sampling.width);
   const y = Math.floor((1 - v) * sampling.height);
-  const offsets: readonly [number, number][] = [
-    [0, 0],
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ];
 
   const votes = new Map<VisualRegionId, number>();
-
-  offsets.forEach(([dx, dy]) => {
+  MASK_SAMPLE_OFFSETS.forEach(([dx, dy]) => {
     const px = Math.max(0, Math.min(sampling.width - 1, x + dx));
     const py = Math.max(0, Math.min(sampling.height - 1, y + dy));
-    const [r, g, b, a] = sampling.ctx.getImageData(px, py, 1, 1).data;
+    const [r, , , a] = sampling.ctx.getImageData(px, py, 1, 1).data;
     if (a <= 3) {
       return;
     }
 
-    const candidates = [r, g, b, Math.round((r + g + b) / 3), Math.max(r, g, b)];
-    let bestCandidateRegion: VisualRegionId | null = null;
-    let bestCandidateDistance = Number.POSITIVE_INFINITY;
-
-    candidates.forEach((candidateId) => {
-      if (candidateId <= MASK_BACKGROUND_MAX) {
-        return;
-      }
-
-      VISUAL_REGION_MASK_VALUES.forEach((maskId, index) => {
-        const distance = Math.abs(candidateId - maskId);
-        if (distance < bestCandidateDistance) {
-          bestCandidateDistance = distance;
-          bestCandidateRegion = VISUAL_REGION_ORDER[index];
-        }
-      });
-    });
-
-    if (!bestCandidateRegion || bestCandidateDistance > MASK_ID_MAX_DISTANCE) {
+    const sampledRegion = resolveRegionFromMaskId(r);
+    if (!sampledRegion) {
       return;
     }
 
-    votes.set(bestCandidateRegion, (votes.get(bestCandidateRegion) ?? 0) + 1);
+    votes.set(sampledRegion, (votes.get(sampledRegion) ?? 0) + 1);
   });
 
   let winner: VisualRegionId | null = null;
@@ -427,19 +430,20 @@ function createMaskHeatMaterial(maskTexture: THREE.Texture): THREE.ShaderMateria
       varying vec3 vNormalW;
 
       float resolveRegionIndex(float maskId) {
-        if (abs(maskId - 240.0) <= 8.0) return 0.0;   // FINGERS
-        if (abs(maskId - 95.0) <= 8.0) return 1.0;    // FOREARMS
-        if (abs(maskId - 115.0) <= 8.0) return 2.0;   // BICEPS
-        if (abs(maskId - 135.0) <= 8.0) return 3.0;   // TRICEPS
-        if (abs(maskId - 170.0) <= 8.0) return 4.0;   // SHOULDERS
-        if (abs(maskId - 225.0) <= 8.0) return 5.0;   // LATS
-        if (abs(maskId - 200.0) <= 8.0) return 6.0;   // TRAPS
-        if (abs(maskId - 145.0) <= 8.0) return 7.0;   // CHEST
-        if (abs(maskId - 160.0) <= 8.0) return 8.0;   // ABS
-        if (abs(maskId - 75.0) <= 8.0) return 9.0;    // GLUTES
-        if (abs(maskId - 35.0) <= 8.0) return 10.0;   // QUADS
-        if (abs(maskId - 55.0) <= 8.0) return 11.0;   // HAMSTRINGS
-        if (abs(maskId - 15.0) <= 8.0) return 12.0;   // CALVES
+        if (maskId <= 6.0) return -1.0;
+        if (abs(maskId - 240.0) <= 14.0) return 0.0;   // FINGERS
+        if (abs(maskId - 95.0) <= 14.0) return 1.0;    // FOREARMS
+        if (abs(maskId - 115.0) <= 14.0) return 2.0;   // BICEPS
+        if (abs(maskId - 135.0) <= 14.0) return 3.0;   // TRICEPS
+        if (abs(maskId - 170.0) <= 14.0) return 4.0;   // SHOULDERS
+        if (abs(maskId - 225.0) <= 14.0) return 5.0;   // LATS
+        if (abs(maskId - 200.0) <= 14.0) return 6.0;   // TRAPS
+        if (abs(maskId - 145.0) <= 14.0) return 7.0;   // CHEST
+        if (abs(maskId - 160.0) <= 14.0) return 8.0;   // ABS
+        if (abs(maskId - 75.0) <= 14.0) return 9.0;    // GLUTES
+        if (abs(maskId - 35.0) <= 14.0) return 10.0;   // QUADS
+        if (abs(maskId - 55.0) <= 14.0) return 11.0;   // HAMSTRINGS
+        if (abs(maskId - 15.0) <= 14.0) return 12.0;   // CALVES
         return -1.0;
       }
 
