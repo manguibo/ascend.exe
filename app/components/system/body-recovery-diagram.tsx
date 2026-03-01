@@ -238,6 +238,17 @@ function resolveRegionFromUvMask(object: THREE.Object3D, uv: THREE.Vector2 | und
   return null;
 }
 
+function hasMaskTextureInHierarchy(object: THREE.Object3D): boolean {
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    if (node.userData?.maskTexture) {
+      return true;
+    }
+    node = node.parent;
+  }
+  return false;
+}
+
 function buildVisualStressArray(stressedRegionLevels: Partial<Record<BaseRegionId, number>>): number[] {
   return VISUAL_REGION_ORDER.map((regionId) => getVisualStressLevel(stressedRegionLevels, regionId));
 }
@@ -530,6 +541,7 @@ function AvatarModel({
         edgeLines.userData.overlayPart = true;
         edgeLines.userData.overlayKind = "edges";
         edgeLines.userData.regionId = regionId;
+        edgeLines.raycast = () => null;
         mesh.add(edgeLines);
 
         if (maskTexture && !mesh.children.some((child) => child.userData?.overlayKind === "mask-heat")) {
@@ -539,7 +551,13 @@ function AvatarModel({
           heatOverlay.userData.overlayPart = true;
           heatOverlay.userData.overlayKind = "mask-heat";
           heatOverlay.userData.maskTexture = maskTexture;
+          heatOverlay.userData.dynamicRegion = true;
           mesh.add(heatOverlay);
+        }
+
+        if (maskTexture) {
+          shell.userData.maskTexture = maskTexture;
+          shell.userData.dynamicRegion = true;
         }
       }
     });
@@ -620,7 +638,15 @@ function AvatarModel({
 
   const onPointerMove = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
+    if (event.object.userData?.overlayKind === "edges") {
+      return;
+    }
+    const hasMaskTexture = hasMaskTextureInHierarchy(event.object);
     const maskRegion = resolveRegionFromUvMask(event.object, event.uv);
+    if (hasMaskTexture) {
+      onRegionHover(maskRegion);
+      return;
+    }
     const staticRegion = resolveRegionIdFromObject(event.object);
     const dynamicRegion = hasDynamicRegionRouting(event.object) ? inferRegionFromHitPoint(event.point, event.object) : null;
     onRegionHover(maskRegion ?? dynamicRegion ?? staticRegion);
@@ -630,7 +656,15 @@ function AvatarModel({
 
   const onPointerDown = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
+    if (event.object.userData?.overlayKind === "edges") {
+      return;
+    }
+    const hasMaskTexture = hasMaskTextureInHierarchy(event.object);
     const maskRegion = resolveRegionFromUvMask(event.object, event.uv);
+    if (hasMaskTexture) {
+      if (maskRegion) onRegionSelect(maskRegion);
+      return;
+    }
     const staticRegion = resolveRegionIdFromObject(event.object);
     const dynamicRegion = hasDynamicRegionRouting(event.object) ? inferRegionFromHitPoint(event.point, event.object) : null;
     const regionId = maskRegion ?? dynamicRegion ?? staticRegion;
