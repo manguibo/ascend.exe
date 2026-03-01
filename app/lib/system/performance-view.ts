@@ -1,4 +1,4 @@
-import { getDirectiveTierInfo, type DirectiveTier } from "../directives/tier";
+import { getDirectiveTierInfo, type DirectiveTierInfo } from "../directives/tier";
 import {
   assessDemotionStatus,
   evaluateProgressEvent,
@@ -23,7 +23,7 @@ import type { SystemSnapshot } from "./types";
 export type PerformanceView = {
   rankProgress: RankProgress;
   currentRank: RankDefinition;
-  directiveTier: DirectiveTier;
+  directiveTier: DirectiveTierInfo;
   disciplineRiskPct: number;
   disciplineRiskBand: RiskBand;
   decayPressurePct: number;
