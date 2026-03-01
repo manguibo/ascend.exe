@@ -18,7 +18,7 @@ import {
 } from "three";
 import type { GLTF } from "three-stdlib";
 
-const MODEL_URL = "/models/human-avatar.glb";
+const MODEL_URL = "/anatomy/human-avatar.glb";
 const MASK_URL = "/anatomy/ascend_muscle_id_clean.png";
 const DEFAULT_MODEL_COLOR = new Color("#8ec5ff");
 
