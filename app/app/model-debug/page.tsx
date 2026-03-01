@@ -3,7 +3,7 @@
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import { Suspense, useMemo, useRef, useState } from "react";
-import { Color, Group, LinearFilter, Mesh, MeshStandardMaterial, Texture, Vector2 } from "three";
+import { Color, Group, LinearFilter, Mesh, MeshStandardMaterial, Object3D, Texture, Vector2 } from "three";
 import type { GLTF } from "three-stdlib";
 
 type MuscleEntry = {
@@ -45,6 +45,11 @@ type DebugGltf = GLTF & {
 type SampleResult = {
   sampledId: number;
   resolvedName: string;
+};
+
+type SampleCandidate = {
+  texture: Texture;
+  uv: Vector2;
 };
 
 function resolveMuscleName(sampledId: number): string {
@@ -120,6 +125,24 @@ function readMaskIdFromTexture(texture: Texture, uv: Vector2): number | null {
   return samples[Math.floor(samples.length / 2)] ?? null;
 }
 
+function findMaskTextureOnObject(object: Object3D): Texture | null {
+  let node: Object3D | null = object;
+  while (node) {
+    if (node instanceof Mesh) {
+      const material = node.material;
+      const materialList = Array.isArray(material) ? material : [material];
+      for (const mat of materialList) {
+        if (mat instanceof MeshStandardMaterial && mat.map) {
+          return mat.map;
+        }
+      }
+    }
+    node = node.parent;
+  }
+
+  return null;
+}
+
 function AvatarModel({
   onSample,
 }: {
@@ -128,6 +151,7 @@ function AvatarModel({
   const gltf = useGLTF(MODEL_URL) as DebugGltf;
   const clonedScene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
   const reusableUv = useRef(new Vector2());
+  const fallbackMaskTextureRef = useRef<Texture | null>(null);
 
   useMemo(() => {
     clonedScene.traverse((obj) => {
@@ -145,6 +169,7 @@ function AvatarModel({
           mat.map.minFilter = LinearFilter;
           mat.map.magFilter = LinearFilter;
           mat.map.needsUpdate = true;
+          fallbackMaskTextureRef.current ??= mat.map;
         }
       };
 
@@ -157,27 +182,24 @@ function AvatarModel({
   }, [clonedScene]);
 
   const handlePointerDown = (event: ThreeEvent<PointerEvent>) => {
-    const hitObject = event.object;
-    if (!(hitObject instanceof Mesh)) {
-      return;
-    }
+    const candidates: SampleCandidate[] = [];
+    event.intersections.forEach((intersection) => {
+      if (!intersection.uv) return;
+      const foundTexture = findMaskTextureOnObject(intersection.object) ?? fallbackMaskTextureRef.current;
+      if (!foundTexture) return;
+      candidates.push({ texture: foundTexture, uv: intersection.uv.clone() });
+    });
 
-    const hitUv = event.uv;
-    if (!hitUv) {
-      console.warn("No UV hit available on click.");
-      return;
-    }
-
-    reusableUv.current.copy(hitUv);
-    const material = hitObject.material;
-    const materialList = Array.isArray(material) ? material : [material];
-
-    for (const mat of materialList) {
-      if (!(mat instanceof MeshStandardMaterial) || !mat.map) {
-        continue;
+    if (event.uv) {
+      const foundTexture = findMaskTextureOnObject(event.object) ?? fallbackMaskTextureRef.current;
+      if (foundTexture) {
+        candidates.unshift({ texture: foundTexture, uv: event.uv.clone() });
       }
+    }
 
-      const sampledId = readMaskIdFromTexture(mat.map, reusableUv.current);
+    for (const candidate of candidates) {
+      reusableUv.current.copy(candidate.uv);
+      const sampledId = readMaskIdFromTexture(candidate.texture, reusableUv.current);
       if (sampledId === null) {
         continue;
       }
@@ -188,7 +210,7 @@ function AvatarModel({
       return;
     }
 
-    console.warn("Clicked mesh has no baseColor map to sample.");
+    console.warn("No valid UV + mask texture sampling candidate was found for this click.");
   };
 
   return <primitive object={clonedScene} onPointerDown={handlePointerDown} />;
