@@ -107,7 +107,6 @@ const STRESS_YELLOW = new THREE.Color("#ffe066");
 const STRESS_ORANGE = new THREE.Color("#ff922e");
 const STRESS_RED = new THREE.Color("#ff3b1f");
 const STRESS_MIN_VISUAL = 0.14;
-const MASK_ID_MATCH_TOLERANCE = 8;
 
 const VISUAL_REGION_MASK_ID: Record<VisualRegionId, number> = {
   CALVES: 15,
@@ -146,8 +145,8 @@ function getStressTone(stressLevel: number): THREE.Color {
   return color;
 }
 
-function resolveVisualRegionFromMaskId(sampledId: number): VisualRegionId | null {
-  let bestRegion: VisualRegionId | null = null;
+function resolveVisualRegionFromMaskId(sampledId: number): VisualRegionId {
+  let bestRegion: VisualRegionId = VISUAL_REGION_ORDER[0];
   let bestDistance = Number.POSITIVE_INFINITY;
 
   for (const regionId of VISUAL_REGION_ORDER) {
@@ -159,10 +158,7 @@ function resolveVisualRegionFromMaskId(sampledId: number): VisualRegionId | null
     }
   }
 
-  if (bestRegion && bestDistance <= MASK_ID_MATCH_TOLERANCE) {
-    return bestRegion;
-  }
-  return null;
+  return bestRegion;
 }
 
 function getTextureSamplingContext(texture: THREE.Texture): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; width: number; height: number } | null {
@@ -217,8 +213,8 @@ function sampleMaskIdAtUv(texture: THREE.Texture, uv: THREE.Vector2): number | n
   return pixel[0] ?? null;
 }
 
-function resolveRegionFromUvMask(object: THREE.Object3D, uv: THREE.Vector2 | undefined): VisualRegionId | null {
-  if (!uv) {
+function resolveRegionFromUvMaskCandidates(object: THREE.Object3D, uvCandidates: readonly (THREE.Vector2 | undefined)[]): VisualRegionId | null {
+  if (uvCandidates.length === 0) {
     return null;
   }
 
@@ -226,9 +222,12 @@ function resolveRegionFromUvMask(object: THREE.Object3D, uv: THREE.Vector2 | und
   while (node) {
     const texture = node.userData?.maskTexture as THREE.Texture | undefined;
     if (texture) {
-      const sampledId = sampleMaskIdAtUv(texture, uv);
-      if (typeof sampledId === "number") {
-        return resolveVisualRegionFromMaskId(sampledId);
+      for (const uv of uvCandidates) {
+        if (!uv) continue;
+        const sampledId = sampleMaskIdAtUv(texture, uv);
+        if (typeof sampledId === "number") {
+          return resolveVisualRegionFromMaskId(sampledId);
+        }
       }
       return null;
     }
@@ -642,7 +641,11 @@ function AvatarModel({
       return;
     }
     const hasMaskTexture = hasMaskTextureInHierarchy(event.object);
-    const maskRegion = resolveRegionFromUvMask(event.object, event.uv);
+    const uvCandidates = [
+      event.uv,
+      ...event.intersections.map((intersection) => intersection.uv),
+    ];
+    const maskRegion = resolveRegionFromUvMaskCandidates(event.object, uvCandidates);
     if (hasMaskTexture) {
       onRegionHover(maskRegion);
       return;
@@ -660,7 +663,11 @@ function AvatarModel({
       return;
     }
     const hasMaskTexture = hasMaskTextureInHierarchy(event.object);
-    const maskRegion = resolveRegionFromUvMask(event.object, event.uv);
+    const uvCandidates = [
+      event.uv,
+      ...event.intersections.map((intersection) => intersection.uv),
+    ];
+    const maskRegion = resolveRegionFromUvMaskCandidates(event.object, uvCandidates);
     if (hasMaskTexture) {
       if (maskRegion) onRegionSelect(maskRegion);
       return;
