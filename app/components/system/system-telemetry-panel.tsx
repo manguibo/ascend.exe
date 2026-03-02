@@ -35,17 +35,17 @@ export function SystemTelemetryPanel({
   const activeNodes = Math.max(1, Math.round((readiness / 100) * 12));
 
   return (
-    <TacticalVisualPanel title="HEALTH SUMMARY">
+    <TacticalVisualPanel title="Health Overview">
       <div className="grid gap-2 border border-cyan-500/30 bg-black/70 px-3 py-2 text-[10px] tracking-[0.14em] text-cyan-300 sm:grid-cols-3">
-        <p>READINESS BAND: {getRiskBand(100 - readiness)}</p>
-        <p>CONSISTENCY RISK: {disciplineRiskBand}</p>
-        <p>DECAY RISK: {decayPressureBand}</p>
+        <p>Readiness status: {getRiskBand(100 - readiness)}</p>
+        <p>Consistency risk: {disciplineRiskBand}</p>
+        <p>Inactivity risk: {decayPressureBand}</p>
       </div>
       {showMatrix ? (
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] tracking-[0.17em] text-cyan-500/90">STATUS GRID</p>
-            <p className="text-[10px] tracking-[0.14em] text-cyan-500/90">ACTIVE CELLS {activeNodes}/12</p>
+            <p className="text-[10px] tracking-[0.17em] text-cyan-500/90">System status grid</p>
+            <p className="text-[10px] tracking-[0.14em] text-cyan-500/90">Active cells {activeNodes}/12</p>
           </div>
           <div className="grid grid-cols-6 gap-2">
             {Array.from({ length: 12 }).map((_, index) => {
@@ -68,9 +68,9 @@ export function SystemTelemetryPanel({
             })}
           </div>
           <div className="grid gap-2 text-[10px] tracking-[0.15em] text-cyan-300 sm:grid-cols-3">
-            <p className="border border-cyan-500/35 px-2 py-1">READINESS {readiness}%</p>
-            <p className="border border-[#4b2a78] px-2 py-1 text-[#c7acff]">CONSISTENCY RISK {disciplineRisk}% {disciplineRiskBand}</p>
-            <p className="border border-[#7a2f35] px-2 py-1 text-[#ff8d97]">DECAY PRESSURE {decayPressure}% {decayPressureBand}</p>
+            <p className="border border-cyan-500/35 px-2 py-1">Readiness {readiness}%</p>
+            <p className="border border-[#4b2a78] px-2 py-1 text-[#c7acff]">Consistency risk {disciplineRisk}% {disciplineRiskBand}</p>
+            <p className="border border-[#7a2f35] px-2 py-1 text-[#ff8d97]">Inactivity pressure {decayPressure}% {decayPressureBand}</p>
           </div>
         </div>
       ) : null}
@@ -78,22 +78,22 @@ export function SystemTelemetryPanel({
         <div className="grid gap-3">
           <SignalMeter label={primaryLabel} value={primaryValuePct} hint={primaryHint} />
           <SignalMeter
-            label={`CONSISTENCY RISK (${disciplineRiskBand})`}
+            label={`Consistency risk (${disciplineRiskBand})`}
             value={disciplineRiskPct}
             tone={disciplineRiskBand === "HIGH" || disciplineRiskBand === "CRITICAL" ? "red" : "purple"}
-            hint="COMPROMISED DAYS IN LAST 7 DAYS"
+            hint="Based on compromised days in the last 7 days"
           />
           <SignalMeter
-            label={`DECAY PRESSURE (${decayPressureBand})`}
+            label={`Inactivity pressure (${decayPressureBand})`}
             value={decayPressurePct}
             tone={decayPressureBand === "LOW" ? "cyan" : decayPressureBand === "MODERATE" ? "purple" : "red"}
-            hint="INACTIVE DAYS PAST GRACE WINDOW"
+            hint="Based on inactive days past your grace window"
           />
         </div>
         <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-          <RadialGauge label="READINESS" value={primaryValuePct} />
-          <RadialGauge label="CONSISTENCY" value={disciplineRiskPct} tone="purple" />
-          <RadialGauge label="DECAY" value={decayPressurePct} tone="red" />
+          <RadialGauge label="Readiness" value={primaryValuePct} />
+          <RadialGauge label="Consistency" value={disciplineRiskPct} tone="purple" />
+          <RadialGauge label="Inactivity" value={decayPressurePct} tone="red" />
         </div>
       </div>
       {disciplineStates ? <DisciplineHeatline states={disciplineStates} /> : null}

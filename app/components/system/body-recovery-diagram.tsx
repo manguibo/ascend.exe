@@ -290,7 +290,7 @@ function buildRecoveryRoute(region: VisualRegionSignal, activityCodename?: strin
   const context = activityCodename ? `for ${activityCodename}` : "for current activity";
   if (region.status === "RECOVER" || (region.loadPct >= 75 && region.recoveryPct <= 60)) {
     return {
-      route: "DELOAD + ACTIVE RECOVERY",
+      route: "Recovery Focus",
       rationale: `${region.label} is under high stress ${context}. Priority is tissue recovery before progression.`,
       steps: ["Reduce direct loading for 24-48h.", "Use light mobility and blood-flow work.", "Sleep and hydration compliance at high priority."],
     };
@@ -298,14 +298,14 @@ function buildRecoveryRoute(region: VisualRegionSignal, activityCodename?: strin
 
   if (region.status === "MONITOR" || region.loadPct >= 60) {
     return {
-      route: "CONTROLLED LOAD + MONITORING",
+      route: "Train Light + Monitor",
       rationale: `${region.label} is trainable but carrying medium stress ${context}. Progress with controlled volume.`,
       steps: ["Maintain moderate intensity and reduce failure sets.", "Add mobility between sets for this region.", "Recheck readiness trend after next logged session."],
     };
   }
 
   return {
-    route: "PROGRESSIVE OVERLOAD WINDOW",
+    route: "Progress Window",
     rationale: `${region.label} is in a ready state ${context}. You can increase stimulus safely with control.`,
     steps: ["Increase load or volume by 5-10%.", "Keep warm-up and activation specific to this region.", "Track next-session readiness to confirm adaptation."],
   };
@@ -1015,14 +1015,14 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
   return (
     <section className="border border-cyan-500/50 bg-black p-4 font-mono sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xs tracking-[0.22em] text-cyan-500">3D EXOSKELETON INTERFACE</h2>
+        <h2 className="text-xs tracking-[0.22em] text-cyan-500">3D Muscle Interface</h2>
         {selectedRegionId ? (
           <button
             type="button"
             onClick={() => setSelectedRegionId(null)}
             className="border border-cyan-500/40 px-2 py-1 text-[10px] tracking-[0.14em] text-cyan-300"
           >
-            RESET SELECTION
+            Reset view
           </button>
         ) : null}
       </div>
@@ -1073,14 +1073,14 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
           {recoveryRecommendations.length > 0 ? (
             <div className="pointer-events-none absolute left-4 top-4 z-20 w-[min(42vw,320px)]">
               <div className="pointer-events-auto border border-[#ff922e]/75 bg-black/92 px-3 py-2 font-mono shadow-[0_0_18px_rgba(255,146,46,0.25)]">
-                <p className="text-[10px] tracking-[0.16em] text-[#ffb45f]">RECOVERY DIRECTIVE</p>
+                <p className="text-[10px] tracking-[0.16em] text-[#ffb45f]">Recovery guidance</p>
                 <p className="mt-1 text-[10px] tracking-[0.14em] text-[#ffd4a3]/85">
-                  {recoveryRecommendations.length} MUSCLE GROUP{recoveryRecommendations.length === 1 ? "" : "S"} REQUIRE REST
+                  {recoveryRecommendations.length} muscle group{recoveryRecommendations.length === 1 ? "" : "s"} need extra recovery
                 </p>
                 <div className="mt-2 grid max-h-56 gap-1 overflow-y-auto pr-1">
                   {recoveryRecommendations.map((entry) => (
                     <p key={`recovery-${entry.visualId}`} className="border border-[#ff922e]/35 px-2 py-1 text-[11px] text-[#ffd4a3]">
-                      {formatVisualRegionLabel(entry.visualId)} | ETA {entry.etaHours}H ({entry.etaDays}D) | STRESS {entry.stressPct}%
+                      {formatVisualRegionLabel(entry.visualId)} | recover ~{entry.etaDays} day(s) | stress {entry.stressPct}%
                     </p>
                   ))}
                 </div>
@@ -1089,33 +1089,33 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
           ) : (
             <div className="pointer-events-none absolute left-4 top-4 z-20">
               <p className="border border-cyan-500/45 bg-black/80 px-3 py-2 text-[10px] tracking-[0.14em] text-cyan-300">
-                RECOVERY DIRECTIVE: NO IMMEDIATE MUSCLE REST ALERTS.
+                Recovery guidance: no immediate rest alerts.
               </p>
             </div>
           )}
           <div className="pointer-events-none absolute right-4 top-4 z-20 w-[min(38vw,290px)]">
             <div className="border border-cyan-500/50 bg-black/86 px-3 py-2 font-mono shadow-[0_0_16px_rgba(73,221,255,0.18)]">
-              <p className="text-[10px] tracking-[0.16em] text-cyan-400">FOCUS TELEMETRY</p>
+              <p className="text-[10px] tracking-[0.16em] text-cyan-400">Focus panel</p>
               <p className="mt-1 text-[11px] text-cyan-200/95">
-                TARGET {selectedRegionId ? formatVisualRegionLabel(selectedRegionId) : "NONE"}
+                Target {selectedRegionId ? formatVisualRegionLabel(selectedRegionId) : "None"}
               </p>
               <p className="mt-1 text-[10px] tracking-[0.12em] text-cyan-300/80">
-                {selectedRegionId ? "CAMERA LOCK ACTIVE" : "SELECT A REGION TO ENGAGE CAMERA LOCK"}
+                {selectedRegionId ? "Auto focus is active" : "Select a region to auto focus"}
               </p>
               <div className="mt-2 grid gap-1">
                 {stressLeaderboard.map((entry, index) => (
                   <p key={`focus-${entry.regionId}`} className="border border-cyan-500/25 px-2 py-1 text-[10px] text-cyan-200/90">
-                    {index + 1}. {formatVisualRegionLabel(entry.regionId)} | LOAD {entry.stressPct}%
+                    {index + 1}. {formatVisualRegionLabel(entry.regionId)} | load {entry.stressPct}%
                   </p>
                 ))}
               </div>
             </div>
           </div>
         </div>
-        <p className="mt-2 text-[10px] tracking-[0.14em] text-cyan-500/85">DRAG TO ROTATE 360 | CLICK MUSCLE GROUP TO SELECT</p>
+        <p className="mt-2 text-[10px] tracking-[0.14em] text-cyan-500/85">Drag to rotate | scroll to zoom | click a muscle group to focus</p>
         {modelAvailable === false ? (
           <p className="mt-2 border border-cyan-500/30 px-2 py-1 text-[10px] tracking-[0.12em] text-cyan-300/90">
-            EXOSKELETON PROXY ACTIVE. PLACE `human-avatar.glb` IN `app/public/anatomy/` TO OVERRIDE WITH CUSTOM 3D MODEL.
+            Fallback model active. Place `human-avatar.glb` in `app/public/anatomy/` to use your custom 3D model.
           </p>
         ) : null}
       </div>
@@ -1133,20 +1133,20 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
             <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:linear-gradient(rgba(0,229,255,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(0,229,255,0.2)_1px,transparent_1px)] [background-size:20px_20px]" />
             <div className="relative z-10">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-[10px] tracking-[0.15em] text-cyan-500">TARGETED MUSCLE INTERFACE</p>
+                <p className="text-[10px] tracking-[0.15em] text-cyan-500">Muscle details</p>
                 <button type="button" onClick={() => setSelectedRegionId(null)} className="border border-cyan-500/40 px-2 py-1 text-[10px] tracking-[0.14em] text-cyan-300">
                   CLOSE
                 </button>
               </div>
               <p className="mt-2 text-xs tracking-[0.14em] text-cyan-200">
-                TARGET {selectedRegion.label} | ACTIVITY {activityCodename ?? "CURRENT ACTIVITY"}
+                Target {selectedRegion.label} | Activity {activityCodename ?? "Current activity"}
               </p>
               <p className="mt-1 text-[11px] text-cyan-300/90">
-                STRESS {selectedRegion.loadPct}% | READINESS {selectedRegion.readinessPct}% | RECOVERY {selectedRegion.recoveryPct}%
+                Stress {selectedRegion.loadPct}% | Readiness {selectedRegion.readinessPct}% | Recovery {selectedRegion.recoveryPct}%
               </p>
               <p className="mt-1 text-[11px] text-cyan-500/90">
-                TREND {selectedInsight?.deltaPct && selectedInsight.deltaPct > 0 ? "+" : ""}
-                {selectedInsight?.deltaPct ?? 0}% | ETA {selectedInsight?.etaDays ?? "-"} DAY(S)
+                Trend {selectedInsight?.deltaPct && selectedInsight.deltaPct > 0 ? "+" : ""}
+                {selectedInsight?.deltaPct ?? 0}% | est. recovery {selectedInsight?.etaDays ?? "-"} day(s)
               </p>
               <p className="mt-2 text-xs tracking-[0.14em] text-cyan-100">{selectedRoute.route}</p>
               <p className="mt-1 text-[11px] text-cyan-300/85">{selectedRoute.rationale}</p>

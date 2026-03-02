@@ -24,7 +24,7 @@ export function CollapsiblePanel({ panelId, title, children, defaultOpen = true,
         className="ui-focus-ring flex w-full items-center justify-between px-4 py-4 text-left transition-colors hover:bg-cyan-500/5 sm:px-5"
       >
         <h2 className="ui-panel-title">{title}</h2>
-        <span className="text-[10px] tracking-[0.16em] text-cyan-300">{open ? "COLLAPSE" : "EXPAND"}</span>
+        <span className="text-[10px] tracking-[0.16em] text-cyan-300">{open ? "Hide" : "Show"}</span>
       </button>
       <AnimatePresence initial={false}>
         {open ? (

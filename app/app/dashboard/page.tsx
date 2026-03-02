@@ -36,27 +36,27 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
       <section className="mx-auto grid w-full max-w-6xl gap-6">
         <PageHeader
-          node="ASCEND.EXE // DASHBOARD"
-          title="PERFORMANCE OVERVIEW"
+          node="ASCEND // Overview"
+          title="Performance Snapshot"
           description={snapshot.statusLine}
         />
 
         <TacticalReveal delay={0.04}>
           <section className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
           <article className="border border-cyan-500/50 bg-black p-5 font-mono">
-            <h2 className="text-xs tracking-[0.22em] text-cyan-500">XP TRANSPARENCY</h2>
+            <h2 className="text-xs tracking-[0.22em] text-cyan-500">XP Breakdown</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="border border-cyan-500/40 p-4">
-                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">SESSION XP</p>
+                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">Session XP</p>
                 <p className="mt-2 text-3xl text-cyan-200">{snapshot.xp.sessionXp}</p>
                 <p className="mt-2 text-xs text-cyan-300/80" title="Session XP = round(BaseRate x Intensity x Duration x Outcome x Consistency)">
-                  BASED ON EFFORT, DURATION, OUTCOME, AND CONSISTENCY.
+                  Based on effort, duration, outcome, and consistency.
                 </p>
               </div>
               <div className="border border-cyan-500/40 p-4">
-                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">TOTAL XP</p>
+                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">Total XP</p>
                 <p className="mt-2 text-3xl text-cyan-200">{snapshot.xp.totalXp}</p>
-                <p className="mt-2 text-xs text-cyan-300/80">LEVEL FLOOR: {snapshot.xp.levelFloorXp}</p>
+                <p className="mt-2 text-xs text-cyan-300/80">Minimum protected XP: {snapshot.xp.levelFloorXp}</p>
               </div>
             </div>
             <div className="mt-4 border border-cyan-500/35 p-4">
@@ -65,50 +65,50 @@ export default function DashboardPage() {
           </article>
 
           <aside className="grid gap-6">
-            <CollapsiblePanel panelId="dashboard-rank-status" title="RANK SUMMARY">
+            <CollapsiblePanel panelId="dashboard-rank-status" title="Rank summary">
               <div className="font-mono">
                 <p className="text-xl tracking-[0.06em] text-cyan-200">{currentRank.id}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">RANK FLOOR: {currentRank.minXp} XP</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Rank floor: {currentRank.minXp} XP</p>
                 <p className="mt-2 text-xs text-cyan-300/85">
-                  {rankProgress.nextRank ? `NEXT RANK: ${rankProgress.nextRank.id} AT ${rankProgress.nextRank.minXp} XP` : "MAXIMUM RANK ACHIEVED"}
+                  {rankProgress.nextRank ? `Next rank: ${rankProgress.nextRank.id} at ${rankProgress.nextRank.minXp} XP` : "Highest rank reached"}
                 </p>
-                <p className="mt-2 text-xs text-cyan-300/85">PLAN LEVEL: {directiveTier.tier}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">WORKOUT FREQUENCY: {snapshot.xp.expectedCadence} | GRACE {snapshot.xp.graceDays} DAY(S)</p>
-                <p className="mt-2 text-xs text-cyan-300/85">XP TO NEXT: {rankProgress.xpToNextRank} | BAND PROGRESS: {rankProgress.bandProgressPct}%</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Plan level: {directiveTier.tier}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Workout frequency: {snapshot.xp.expectedCadence} | grace {snapshot.xp.graceDays} day(s)</p>
+                <p className="mt-2 text-xs text-cyan-300/85">XP to next: {rankProgress.xpToNextRank} | progress {rankProgress.bandProgressPct}%</p>
                 <div className="mt-3">
-                  <ProgressStatusBadge status={progressEvent} prefix="STATUS: " />
+                  <ProgressStatusBadge status={progressEvent} prefix="Status: " />
                 </div>
               </div>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="dashboard-discipline-index" title="CONSISTENCY INDEX" defaultOpen={false}>
+            <CollapsiblePanel panelId="dashboard-discipline-index" title="Consistency trend" defaultOpen={false}>
               <div className="font-mono">
                 <p className={`border px-3 py-2 text-sm tracking-[0.18em] ${disciplineToneClass[snapshot.discipline]}`}>
-                  STATE: {snapshot.discipline}
+                  Current state: {snapshot.discipline}
                 </p>
-                <p className="mt-3 text-xs text-cyan-300/80">RECOVERY IMPROVES WHEN YOU LOG ACTIVITY. IT DOES NOT IMPROVE PASSIVELY.</p>
+                <p className="mt-3 text-xs text-cyan-300/80">Recovery improves when you keep logging activity, not by waiting.</p>
                 <p className="mt-3 text-xs text-cyan-500/90">
-                  DEMOTION CHECK: {demotion.shouldDemote ? "TRIGGERED" : "NOT TRIGGERED"} ({demotion.compromisedStreak}/{demotion.requiredCompromisedDays} COMPROMISED DAYS)
+                  Rank protection check: {demotion.shouldDemote ? "Triggered" : "Not triggered"} ({demotion.compromisedStreak}/{demotion.requiredCompromisedDays} compromised days)
                 </p>
               </div>
             </CollapsiblePanel>
 
             <DisciplineTimeline states={snapshot.recentDisciplineStates} />
 
-            <CollapsiblePanel panelId="dashboard-body-recovery-map" title="BODY READINESS + DEVELOPMENT" defaultOpen={false}>
+            <CollapsiblePanel panelId="dashboard-body-recovery-map" title="Body recovery and development" defaultOpen={false}>
               <BodyRecoveryDiagram view={bodyRecoveryView} insights={bodyInsights} activityCodename={snapshot.activity.codename} input={input} />
             </CollapsiblePanel>
 
             <SystemTelemetryPanel
-              primaryLabel="RANK BAND PROGRESS"
+              primaryLabel="Rank progress"
               primaryValuePct={rankProgress.bandProgressPct}
-              primaryHint="CURRENT BAND TRAVERSE"
+              primaryHint="How far you are through this rank band"
               disciplineRiskPct={disciplineRiskPct}
               decayPressurePct={decayPressurePct}
               disciplineStates={snapshot.recentDisciplineStates}
             />
 
-            <CollapsiblePanel panelId="dashboard-xp-decay-control" title="XP DECAY CONTROL" defaultOpen={false}>
+            <CollapsiblePanel panelId="dashboard-xp-decay-control" title="XP decay details" defaultOpen={false}>
               <div className="font-mono">
                 <MicroMetricGrid
                   columns={2}
@@ -131,7 +131,7 @@ export default function DashboardPage() {
                     retentionPct={retentionPct}
                   />
                 </div>
-                <p className="mt-3 text-xs text-cyan-500/90">RANK DROP REQUIRES LOW XP + 7 COMPROMISED DAYS.</p>
+                <p className="mt-3 text-xs text-cyan-500/90">A rank drop only happens with low XP and 7 compromised days.</p>
               </div>
             </CollapsiblePanel>
           </aside>
@@ -139,7 +139,7 @@ export default function DashboardPage() {
         </TacticalReveal>
 
         <TacticalReveal delay={0.08}>
-          <CollapsiblePanel panelId="dashboard-directive-channel" title="CURRENT PLAN" className="font-mono">
+          <CollapsiblePanel panelId="dashboard-directive-channel" title="Current plan" className="font-mono">
             <DirectiveStack directives={snapshot.directives} showIndex={false} />
           </CollapsiblePanel>
         </TacticalReveal>

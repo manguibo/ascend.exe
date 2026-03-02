@@ -33,14 +33,14 @@ export default function Home() {
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
       <section className="mx-auto grid w-full max-w-6xl gap-6">
         <PageHeader
-          node="ASCEND.EXE // HOME"
-          title="PERFORMANCE TRACKER"
+          node="ASCEND // Home"
+          title="Your Training Assistant"
           description={snapshot.statusLine}
         />
 
         <TacticalReveal delay={0.04}>
           <section className="border border-cyan-500/50 bg-black p-4 font-mono sm:p-5">
-            <p className="text-xs tracking-[0.2em] text-cyan-500">NEXT BEST ACTION</p>
+            <p className="text-xs tracking-[0.2em] text-cyan-500">Next best step</p>
             <p className="mt-2 text-lg tracking-[0.05em] text-cyan-100">{nextAction.title}</p>
             <p className="mt-2 text-sm text-cyan-300/85">{nextAction.detail}</p>
           </section>
@@ -60,31 +60,31 @@ export default function Home() {
 
         <TacticalReveal delay={0.08}>
           <section className="grid gap-4 sm:grid-cols-3">
-            <StatusTile label="MODE" value={snapshot.mode} />
-            <StatusTile label="CONSISTENCY">
+            <StatusTile label="Mode" value={snapshot.mode} />
+            <StatusTile label="Consistency">
               <p className={`border px-2 py-1 text-sm tracking-[0.16em] ${disciplineToneClass[snapshot.discipline]}`}>{snapshot.discipline}</p>
             </StatusTile>
             <StatusTile
-              label="DECAY"
-              value={`${snapshot.xp.decayRatePct}% / INACTIVE DAY`}
-              detail={`${snapshot.xp.expectedCadence} | GRACE ${snapshot.xp.graceDays} DAY(S)`}
+              label="XP Decay"
+              value={`${snapshot.xp.decayRatePct}% / inactive day`}
+              detail={`${snapshot.xp.expectedCadence} | grace ${snapshot.xp.graceDays} day(s)`}
             />
             <StatusTile
-              label="RANK"
+              label="Rank"
               value={currentRank.id}
               detail={
                 <>
-                  <p>{rankProgress.nextRank ? `NEXT ${rankProgress.nextRank.id} @ ${rankProgress.nextRank.minXp}` : "MAXIMUM ACHIEVED"}</p>
-                  <p>XP TO NEXT {rankProgress.xpToNextRank} | PROGRESS {rankProgress.bandProgressPct}%</p>
+                  <p>{rankProgress.nextRank ? `Next ${rankProgress.nextRank.id} at ${rankProgress.nextRank.minXp}` : "Highest rank reached"}</p>
+                  <p>XP to next {rankProgress.xpToNextRank} | progress {rankProgress.bandProgressPct}%</p>
                 </>
               }
             />
             <StatusTile
-              label="PLAN LEVEL"
+              label="Plan level"
               value={directiveTier.tier}
-              detail={directiveTier.nextThreshold ? `NEXT @ ${directiveTier.nextThreshold} XP` : "HIGHEST LEVEL ACTIVE"}
+              detail={directiveTier.nextThreshold ? `Next at ${directiveTier.nextThreshold} XP` : "Highest level active"}
             />
-            <StatusTile label="STATUS">
+            <StatusTile label="Status">
               <ProgressStatusBadge status={progressEvent} />
             </StatusTile>
           </section>
@@ -92,9 +92,9 @@ export default function Home() {
 
         <TacticalReveal delay={0.12}>
           <SystemTelemetryPanel
-            primaryLabel="RANK BAND PROGRESS"
+            primaryLabel="Rank progress"
             primaryValuePct={rankProgress.bandProgressPct}
-            primaryHint="PROGRESS IN CURRENT RANK BAND"
+            primaryHint="Progress in your current rank band"
             disciplineRiskPct={disciplineRiskPct}
             decayPressurePct={decayPressurePct}
             disciplineStates={snapshot.recentDisciplineStates}
@@ -103,8 +103,8 @@ export default function Home() {
 
         <TacticalReveal delay={0.16}>
           <section className="border border-cyan-500/50 p-5 font-mono">
-            <h2 className="text-xs tracking-[0.22em] text-cyan-500">QUICK ACTIONS</h2>
-            <p className="mt-2 text-xs text-cyan-300/80">APPLY A SESSION PRESET. VALUES UPDATE LOG, DASHBOARD, AND PLANS.</p>
+            <h2 className="text-xs tracking-[0.22em] text-cyan-500">Quick actions</h2>
+            <p className="mt-2 text-xs text-cyan-300/80">Apply a preset to quickly update your workout log, overview, and plan recommendations.</p>
             <SessionProfileButtons
               className="mt-4 grid gap-2 sm:grid-cols-3"
               profiles={sessionProfiles}

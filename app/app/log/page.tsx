@@ -145,19 +145,19 @@ export default function LogPage() {
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
       <section className="mx-auto grid w-full max-w-6xl gap-6">
         <PageHeader
-          node="ASCEND.EXE // SESSION LOG"
-          title="SESSION INPUT"
-          description="ENTER SESSION DETAILS. RESULTS UPDATE IN REAL TIME."
-          statusLine="SAVE STATUS: ACTIVE"
+          node="ASCEND // Workout Log"
+          title="Log a Workout"
+          description="Enter your session details and watch recovery insights update in real time."
+          statusLine="Auto-save status: active"
         />
 
         <TacticalReveal delay={0.04}>
           <section className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
           <div className="grid gap-4">
-            <CollapsiblePanel panelId="log-primary-activity" title="PRIMARY ACTIVITY">
+            <CollapsiblePanel panelId="log-primary-activity" title="Primary activity">
               <div className="font-mono">
                 <label className="grid gap-1">
-                  <span className="text-xs tracking-[0.16em] text-cyan-500">ACTIVITY CODENAME</span>
+                  <span className="text-xs tracking-[0.16em] text-cyan-500">Activity name</span>
                   <input
                     type="text"
                     maxLength={48}
@@ -167,13 +167,13 @@ export default function LogPage() {
                   />
                 </label>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <p className="text-xs tracking-[0.14em] text-cyan-300/85">SELECTED ACTIVITY: {selectedActivity.label}</p>
+                  <p className="text-xs tracking-[0.14em] text-cyan-300/85">Selected activity: {selectedActivity.label}</p>
                   <button
                     type="button"
                     onClick={() => setActivityPickerOpen((open) => !open)}
                     className="border border-cyan-500/40 px-2 py-1 text-xs tracking-[0.16em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
                   >
-                    + ADD ACTIVITY
+                    + Choose activity
                   </button>
                 </div>
                 {activityPickerOpen ? (
@@ -185,7 +185,7 @@ export default function LogPage() {
                   />
                 ) : null}
                 <label className="mt-3 grid gap-1">
-                  <span className="text-xs tracking-[0.16em] text-cyan-500">WORKOUT FREQUENCY</span>
+                  <span className="text-xs tracking-[0.16em] text-cyan-500">Workout frequency</span>
                   <select
                     value={input.expectedCadence}
                     onChange={(event) => setInput((prev) => ({ ...prev, expectedCadence: event.target.value as SessionLogInput["expectedCadence"] }))}
@@ -199,7 +199,7 @@ export default function LogPage() {
                   </select>
                 </label>
                 <label className="mt-3 grid gap-1">
-                  <span className="text-xs tracking-[0.16em] text-cyan-500">TRAINING PROFILE</span>
+                  <span className="text-xs tracking-[0.16em] text-cyan-500">Training profile</span>
                   <select
                     value={input.bodyTrainingProfile}
                     onChange={(event) =>
@@ -214,11 +214,11 @@ export default function LogPage() {
                     ))}
                   </select>
                 </label>
-                <p className="mt-2 text-xs text-cyan-300/80">THIS NAME WILL BE USED IN THE DASHBOARD AND PLAN PAGES.</p>
+                <p className="mt-2 text-xs text-cyan-300/80">This activity name will be used across your overview and plans.</p>
               </div>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-session-parameters" title="SESSION PARAMETERS">
+            <CollapsiblePanel panelId="log-session-parameters" title="Session details">
               <form className="grid gap-3 font-mono">
                 {sessionLogFields.map((field) => (
                   <label key={field.key} className="grid gap-1">
@@ -236,7 +236,7 @@ export default function LogPage() {
               </form>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-body-signal-inputs" title="BODY SIGNAL INPUTS" defaultOpen={false}>
+            <CollapsiblePanel panelId="log-body-signal-inputs" title="Body stats" defaultOpen={false}>
               <form className="grid gap-3 font-mono">
                 {bodySignalFields.map((field) => (
                   <label key={field.key} className="grid gap-1">
@@ -252,12 +252,12 @@ export default function LogPage() {
                   </label>
                 ))}
               </form>
-              <p className="mt-3 text-xs text-cyan-300/80">FITNESS BASELINE IS 0-100. BODY MAP READINESS UPDATES IN DASHBOARD.</p>
+              <p className="mt-3 text-xs text-cyan-300/80">Fitness baseline is 0-100. Your body map and readiness update from these values.</p>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-discipline-history" title="CONSISTENCY HISTORY" defaultOpen={false}>
+            <CollapsiblePanel panelId="log-discipline-history" title="Consistency history" defaultOpen={false}>
               <div className="font-mono">
-                <p className="text-xs text-cyan-300/85">SET LAST 7 DAYS. DAY 7 IS CURRENT DAY.</p>
+                <p className="text-xs text-cyan-300/85">Set the last 7 days. Day 7 is today.</p>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
                   {input.recentDisciplineStates.map((state, index) => (
                     <label key={`discipline-day-${index + 1}`} className="grid gap-1">
@@ -279,7 +279,7 @@ export default function LogPage() {
               </div>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-profile-presets" title="SESSION PROFILE PRESETS" defaultOpen={false}>
+            <CollapsiblePanel panelId="log-profile-presets" title="Quick presets" defaultOpen={false}>
               <div className="font-mono">
                 <SessionProfileButtons
                   className="grid gap-2 sm:grid-cols-3"
@@ -291,21 +291,21 @@ export default function LogPage() {
                   onClick={handleResetStandard}
                   className="mt-3 border border-cyan-500/40 px-3 py-2 text-xs tracking-[0.15em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
                 >
-                  RESET TO STANDARD
+                  Reset to standard
                 </button>
               </div>
             </CollapsiblePanel>
           </div>
 
           <aside className="grid gap-4 font-mono">
-            <CollapsiblePanel panelId="log-session-output" title="SESSION RESULT">
+            <CollapsiblePanel panelId="log-session-output" title="Session result">
               <p className="text-3xl text-cyan-200">{snapshot.xp.sessionXp} XP</p>
               <p className="mt-2 text-xs text-cyan-300/80" title="Session XP = round(BaseRate x Intensity x Duration x Outcome x Consistency)">
-                BASED ON EFFORT, DURATION, OUTCOME, AND CONSISTENCY.
+                Based on effort, duration, outcome, and consistency.
               </p>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-total-xp-projection" title="TOTAL XP PROJECTION">
+            <CollapsiblePanel panelId="log-total-xp-projection" title="Total XP projection">
               <MicroMetricGrid
                 columns={2}
                 items={[
@@ -330,27 +330,27 @@ export default function LogPage() {
               </div>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-rank-projection" title="RANK PREVIEW" defaultOpen={false}>
+            <CollapsiblePanel panelId="log-rank-projection" title="Rank preview" defaultOpen={false}>
               <p className="text-xl text-cyan-200">{currentRank.id}</p>
               <p className="mt-2 text-xs text-cyan-300/85">RANK FLOOR: {currentRank.minXp} XP</p>
               <p className="mt-2 text-xs text-cyan-300/85">PLAN LEVEL: {directiveTier.tier}</p>
               <p className="mt-2 text-xs text-cyan-500/90">
-                {rankProgress.nextRank ? `NEXT: ${rankProgress.nextRank.id} AT ${rankProgress.nextRank.minXp} XP.` : "MAXIMUM RANK ACHIEVED."}
+                {rankProgress.nextRank ? `Next: ${rankProgress.nextRank.id} at ${rankProgress.nextRank.minXp} XP.` : "Highest rank reached."}
               </p>
               <p className="mt-2 text-xs text-cyan-500/90">XP TO NEXT: {rankProgress.xpToNextRank}</p>
               <p className="mt-1 text-xs text-cyan-500/90">BAND PROGRESS: {rankProgress.bandProgressPct}%</p>
             </CollapsiblePanel>
 
             <SystemTelemetryPanel
-              primaryLabel="RANK BAND PROGRESS"
+              primaryLabel="Rank progress"
               primaryValuePct={rankProgress.bandProgressPct}
-              primaryHint="PROGRESS IN CURRENT RANK BAND"
+              primaryHint="Progress in your current rank band"
               disciplineRiskPct={disciplineRiskPct}
               decayPressurePct={decayPressurePct}
               disciplineStates={snapshot.recentDisciplineStates}
             />
 
-            <CollapsiblePanel panelId="log-body-stress-preview" title="LIVE BODY STRESS MAP">
+            <CollapsiblePanel panelId="log-body-stress-preview" title="Live body stress map">
               <BodyRecoveryDiagram
                 view={bodyRecoveryView}
                 insights={bodyInsights}
@@ -360,10 +360,10 @@ export default function LogPage() {
               />
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-system-note" title="NOTES" defaultOpen={false}>
-              <p className="text-xs text-cyan-300/85">PRIMARY ACTIVITY: {snapshot.activity.codename}</p>
+            <CollapsiblePanel panelId="log-system-note" title="Notes" defaultOpen={false}>
+              <p className="text-xs text-cyan-300/85">Primary activity: {snapshot.activity.codename}</p>
               <p className="mt-3 text-xs text-cyan-300/85">
-                FAILED SESSIONS DO NOT REMOVE XP. LOWER OUTCOME REDUCES XP GAIN. CONSISTENCY ONLY IMPROVES THROUGH ACTION.
+                Failed sessions do not remove XP. Lower outcomes reduce XP gain. Consistency improves through regular activity.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
@@ -371,14 +371,14 @@ export default function LogPage() {
                   onClick={handleCommitHistory}
                   className="border border-cyan-500/40 px-3 py-2 text-xs tracking-[0.15em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
                 >
-                  SAVE SESSION SNAPSHOT
+                  Save session snapshot
                 </button>
                 <button
                   type="button"
                   onClick={() => clearSessionHistory()}
                   className="border border-[#7a2f35]/70 px-3 py-2 text-xs tracking-[0.15em] text-[#ff9aa4] transition-colors hover:bg-[#7a2f35]/20"
                 >
-                  CLEAR HISTORY
+                  Clear history
                 </button>
               </div>
             </CollapsiblePanel>
@@ -402,12 +402,12 @@ export default function LogPage() {
               transition={{ duration: 0.18, ease: "easeOut" }}
               className="w-full max-w-md border border-cyan-500/45 bg-black p-4 font-mono"
             >
-              <p className="text-[10px] tracking-[0.2em] text-cyan-500">ACTIVITY QUESTIONNAIRE</p>
+              <p className="text-[10px] tracking-[0.2em] text-cyan-500">Activity setup</p>
               <p className="mt-2 text-sm text-cyan-100">{getActivityDefinition(activityQuestionnaire.activityId).label}</p>
-              <p className="mt-1 text-[10px] text-cyan-300/85">SET DURATION AND INTENSITY. BODY MAP UPDATES IN REAL TIME.</p>
+              <p className="mt-1 text-[10px] text-cyan-300/85">Set duration and intensity. The body map updates in real time.</p>
 
               <label className="mt-4 grid gap-1">
-                <span className="text-[10px] tracking-[0.14em] text-cyan-500">DURATION (MINUTES)</span>
+                <span className="text-[10px] tracking-[0.14em] text-cyan-500">Duration (minutes)</span>
                 <input
                   type="number"
                   min={10}
@@ -420,7 +420,7 @@ export default function LogPage() {
               </label>
 
               <label className="mt-3 grid gap-1">
-                <span className="text-[10px] tracking-[0.14em] text-cyan-500">INTENSITY (1-10)</span>
+                <span className="text-[10px] tracking-[0.14em] text-cyan-500">Intensity (1-10)</span>
                 <input
                   type="number"
                   min={1}
@@ -438,14 +438,14 @@ export default function LogPage() {
                   onClick={handleQuestionnaireClose}
                   className="border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-xs tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20"
                 >
-                  APPLY SETTINGS
+                  Apply settings
                 </button>
                 <button
                   type="button"
                   onClick={handleQuestionnaireClose}
                   className="border border-cyan-500/40 px-3 py-2 text-xs tracking-[0.14em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
                 >
-                  CLOSE
+                  Close
                 </button>
               </div>
             </motion.div>

@@ -20,47 +20,47 @@ export default function DirectivesPage() {
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
       <section className="mx-auto grid w-full max-w-6xl gap-6">
         <PageHeader
-          node="ASCEND.EXE // PLANS"
-          title="WORKOUT PLAN BOARD"
-          description="PLAN LEVEL IS BASED ON YOUR CURRENT XP BAND."
+          node="ASCEND // Plans"
+          title="Plan Center"
+          description="Your plan level updates from your current XP band."
         />
 
         <TacticalReveal delay={0.04}>
           <section className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
-            <CollapsiblePanel panelId="directives-active-directives" title="ACTIVE PLANS" className="font-mono">
+            <CollapsiblePanel panelId="directives-active-directives" title="Active plans" className="font-mono">
               <DirectiveStack directives={snapshot.directives} />
             </CollapsiblePanel>
 
           <aside className="grid gap-4 font-mono">
-            <CollapsiblePanel panelId="directives-scale" title="PLAN LEVEL">
+            <CollapsiblePanel panelId="directives-scale" title="Plan level">
               <p className="text-2xl text-cyan-200">{scaleTier.tier}</p>
-              <p className="mt-2 text-sm text-cyan-300/90">TOTAL XP: {snapshot.xp.totalXp}</p>
-              <p className="mt-2 text-xs text-cyan-300/90">FREQUENCY: {snapshot.xp.expectedCadence} | GRACE {snapshot.xp.graceDays} DAY(S)</p>
+              <p className="mt-2 text-sm text-cyan-300/90">Total XP: {snapshot.xp.totalXp}</p>
+              <p className="mt-2 text-xs text-cyan-300/90">Frequency: {snapshot.xp.expectedCadence} | grace {snapshot.xp.graceDays} day(s)</p>
               <p className="mt-2 text-xs text-cyan-300/90">
-                XP TO NEXT: {rankProgress.xpToNextRank} | BAND PROGRESS: {rankProgress.bandProgressPct}%
+                XP to next: {rankProgress.xpToNextRank} | progress: {rankProgress.bandProgressPct}%
               </p>
               <p className="mt-2 text-xs text-cyan-500/90">
-                {scaleTier.nextThreshold === null ? "HIGHEST PLAN LEVEL ACTIVE." : `NEXT LEVEL AT: ${scaleTier.nextThreshold} XP.`}
+                {scaleTier.nextThreshold === null ? "You are at the highest plan level." : `Next level at ${scaleTier.nextThreshold} XP.`}
               </p>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="directives-discipline-status" title="CONSISTENCY STATUS" defaultOpen={false}>
-              <p className="text-sm text-cyan-200">STATE: {snapshot.discipline}</p>
-              <p className="mt-2 text-xs text-cyan-300/80">A DECLINING STATE LOWERS PLAN RELIABILITY.</p>
+            <CollapsiblePanel panelId="directives-discipline-status" title="Consistency status" defaultOpen={false}>
+              <p className="text-sm text-cyan-200">State: {snapshot.discipline}</p>
+              <p className="mt-2 text-xs text-cyan-300/80">If consistency declines, plan recommendations become more conservative.</p>
             </CollapsiblePanel>
 
-            <DisciplineTimeline states={snapshot.recentDisciplineStates} title="CONSISTENCY TIMELINE" />
+            <DisciplineTimeline states={snapshot.recentDisciplineStates} title="Consistency timeline" />
 
             <SystemTelemetryPanel
-              primaryLabel="PLAN READINESS"
+              primaryLabel="Plan readiness"
               primaryValuePct={rankProgress.bandProgressPct}
-              primaryHint="PROGRESS WITHIN CURRENT RANK BAND"
+              primaryHint="Progress within your current rank band"
               disciplineRiskPct={disciplineRiskPct}
               decayPressurePct={decayPressurePct}
               disciplineStates={snapshot.recentDisciplineStates}
             />
 
-            <CollapsiblePanel panelId="directives-rank-integrity" title="RANK INTEGRITY" defaultOpen={false}>
+            <CollapsiblePanel panelId="directives-rank-integrity" title="Rank health" defaultOpen={false}>
               <MicroMetricGrid
                 columns={2}
                 items={[
@@ -81,7 +81,7 @@ export default function DirectivesPage() {
                 ]}
               />
               <div className="mt-3">
-                <ProgressStatusBadge status={progressEvent} prefix="STATUS: " />
+                <ProgressStatusBadge status={progressEvent} prefix="Status: " />
               </div>
             </CollapsiblePanel>
           </aside>
