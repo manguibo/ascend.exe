@@ -327,23 +327,18 @@ function CameraFocusController({ selectedRegionId, controlsRef }: CameraFocusCon
   const targetLookAtRef = useRef(new THREE.Vector3(...CAMERA_DEFAULT_TARGET));
   const focusActiveRef = useRef(false);
   const focusDirectionRef = useRef(new THREE.Vector3(0, 0, 1));
+  const releaseAfterTransitionRef = useRef(false);
 
   useEffect(() => {
     if (!selectedRegionId) {
-      focusActiveRef.current = false;
+      focusActiveRef.current = true;
+      releaseAfterTransitionRef.current = true;
       targetPositionRef.current.set(...CAMERA_DEFAULT_POSITION);
       targetLookAtRef.current.set(...CAMERA_DEFAULT_TARGET);
-      camera.position.set(...CAMERA_DEFAULT_POSITION);
-      const controls = controlsRef.current;
-      if (controls) {
-        controls.target.set(...CAMERA_DEFAULT_TARGET);
-        controls.update();
-      } else {
-        camera.lookAt(targetLookAtRef.current);
-      }
       return;
     }
     focusActiveRef.current = true;
+    releaseAfterTransitionRef.current = false;
     const focus = CAMERA_FOCUS_BY_REGION[selectedRegionId];
     const controls = controlsRef.current;
     const orbitTarget = controls ? controls.target : targetLookAtRef.current;
@@ -373,9 +368,24 @@ function CameraFocusController({ selectedRegionId, controlsRef }: CameraFocusCon
     if (controls) {
       controls.target.lerp(targetLookAtRef.current, smoothing);
       controls.update();
+      if (releaseAfterTransitionRef.current) {
+        const camDone = camera.position.distanceToSquared(targetPositionRef.current) < 0.0004;
+        const targetDone = controls.target.distanceToSquared(targetLookAtRef.current) < 0.0004;
+        if (camDone && targetDone) {
+          focusActiveRef.current = false;
+          releaseAfterTransitionRef.current = false;
+        }
+      }
       return;
     }
     camera.lookAt(targetLookAtRef.current);
+    if (releaseAfterTransitionRef.current) {
+      const camDone = camera.position.distanceToSquared(targetPositionRef.current) < 0.0004;
+      if (camDone) {
+        focusActiveRef.current = false;
+        releaseAfterTransitionRef.current = false;
+      }
+    }
   });
 
   return null;
