@@ -811,26 +811,26 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
   const selectedRoute = selectedRegion ? buildRecoveryRoute(selectedRegion, activityCodename) : null;
   const widthSignal = Math.round((morph.shoulderScale * 0.34 + morph.waistScale * 0.33 + morph.hipScale * 0.33) * 100);
   const heightSignal = Math.round(clamp(84 + (input.heightCm - 160) * 0.52 + (morph.legScale - 1) * 18, 80, 152));
-  const recoveryRecommendation = useMemo(() => {
-    const ranked = VISUAL_REGION_ORDER.map((visualId) => ({
-      visualId,
-      stress: getVisualStressLevel(effectiveStressLevels, visualId),
-      etaDays: insights[VISUAL_TO_BASE_REGION[visualId]]?.etaDays ?? null,
-    }))
+  const recoveryRecommendations = useMemo(() => {
+    return VISUAL_REGION_ORDER.map((visualId) => {
+      const stress = getVisualStressLevel(effectiveStressLevels, visualId);
+      const region = regionById.get(visualId);
+      const etaDays = insights[VISUAL_TO_BASE_REGION[visualId]]?.etaDays ?? null;
+      const fallbackEtaDays = Math.max(1, Math.ceil(stress * 3));
+      const resolvedEtaDays = etaDays ?? fallbackEtaDays;
+      const requiresRest = stress >= STRESS_MIN_VISUAL && (region?.status === "RECOVER" || (region?.loadPct ?? 0) >= 70);
+      return {
+        visualId,
+        stress,
+        stressPct: Math.round(stress * 100),
+        etaDays: resolvedEtaDays,
+        etaHours: Math.max(12, resolvedEtaDays * 24),
+        requiresRest,
+      };
+    })
+      .filter((entry) => entry.requiresRest)
       .sort((a, b) => b.stress - a.stress);
-    const top = ranked[0];
-    if (!top || top.stress < STRESS_MIN_VISUAL) {
-      return null;
-    }
-    const etaDays = top.etaDays ?? Math.max(1, Math.ceil(top.stress * 3));
-    const etaHours = Math.max(12, etaDays * 24);
-    return {
-      visualId: top.visualId,
-      etaDays,
-      etaHours,
-      stressPct: Math.round(top.stress * 100),
-    };
-  }, [effectiveStressLevels, insights]);
+  }, [effectiveStressLevels, insights, regionById]);
 
   useEffect(() => {
     let cancelled = false;
@@ -901,16 +901,18 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
 
             <OrbitControls enablePan={false} minDistance={3.8} maxDistance={8.8} target={[0, 0.94, 0]} />
           </Canvas>
-          {recoveryRecommendation ? (
-            <div className="pointer-events-none absolute left-1/2 top-6 z-20 w-[min(88vw,280px)] -translate-x-1/2">
-              <div className="border border-[#ff922e]/75 bg-black/92 px-3 py-2 text-center font-mono shadow-[0_0_18px_rgba(255,146,46,0.25)]">
+          {recoveryRecommendations.length > 0 ? (
+            <div className="pointer-events-none absolute left-4 top-4 z-20 w-[min(42vw,320px)]">
+              <div className="border border-[#ff922e]/75 bg-black/92 px-3 py-2 font-mono shadow-[0_0_18px_rgba(255,146,46,0.25)]">
                 <p className="text-[10px] tracking-[0.16em] text-[#ffb45f]">RECOVERY DIRECTIVE</p>
-                <p className="mt-1 text-xs text-[#ffd4a3]">
-                  {recoveryRecommendation.visualId} | ETA {recoveryRecommendation.etaHours}H ({recoveryRecommendation.etaDays}D)
-                </p>
-                <p className="mt-1 text-[10px] text-[#ffb45f]/85">STRESS LEVEL {recoveryRecommendation.stressPct}%</p>
+                <div className="mt-2 grid gap-1">
+                  {recoveryRecommendations.map((entry) => (
+                    <p key={`recovery-${entry.visualId}`} className="border border-[#ff922e]/35 px-2 py-1 text-[11px] text-[#ffd4a3]">
+                      {entry.visualId} | ETA {entry.etaHours}H ({entry.etaDays}D) | STRESS {entry.stressPct}%
+                    </p>
+                  ))}
+                </div>
               </div>
-              <div className="mx-auto h-0 w-0 border-l-[8px] border-r-[8px] border-t-[10px] border-l-transparent border-r-transparent border-t-[#ff922e]/75" />
             </div>
           ) : null}
         </div>
