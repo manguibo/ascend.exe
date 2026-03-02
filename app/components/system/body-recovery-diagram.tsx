@@ -2,9 +2,10 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Canvas, useFrame, useLoader, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, useThree, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { BodyRecoveryView, BodyRegionInsight, BodyRegionSignal } from "@/lib/system/body-recovery";
 import { deriveAvatarMorphParams } from "@/lib/system/avatar-profile";
 import type { SessionLogInput } from "@/lib/system/session-state";
@@ -56,6 +57,11 @@ type AvatarModelProps = {
   regionById: Map<VisualRegionId, VisualRegionSignal>;
   onRegionHover: (regionId: VisualRegionId | null) => void;
   onRegionSelect: (regionId: VisualRegionId) => void;
+};
+
+type CameraFocusControllerProps = {
+  selectedRegionId: VisualRegionId | null;
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
 };
 
 type ExoskeletonFallbackProps = {
@@ -125,6 +131,25 @@ const HEX_TO_VISUAL_REGION: Record<string, VisualRegionId> = {
   "#3600ff": "CALVES",
 };
 const MASK_BACKGROUND_MAX = 6;
+const CAMERA_DEFAULT_POSITION = [0, 1.08, 5.6] as const;
+const CAMERA_DEFAULT_TARGET = [0, 0.94, 0] as const;
+const CAMERA_DAMPING = 5.2;
+
+const CAMERA_FOCUS_BY_REGION: Record<VisualRegionId, { position: readonly [number, number, number]; target: readonly [number, number, number] }> = {
+  FINGERS: { position: [0, 1.08, 2.85], target: [0, 0.66, 0.46] },
+  FOREARMS: { position: [0, 1.2, 2.95], target: [0, 0.92, 0.3] },
+  BICEPS: { position: [0, 1.36, 2.9], target: [0, 1.24, 0.2] },
+  TRICEPS: { position: [0, 1.35, 2.96], target: [0, 1.22, -0.18] },
+  SHOULDERS: { position: [0, 1.62, 2.86], target: [0, 1.48, 0] },
+  LATS: { position: [0, 1.28, 3.02], target: [0, 1.2, -0.2] },
+  TRAPS: { position: [0, 1.76, 2.92], target: [0, 1.74, -0.08] },
+  CHEST: { position: [0, 1.34, 2.9], target: [0, 1.2, 0.2] },
+  ABS: { position: [0, 1.02, 2.86], target: [0, 0.8, 0.18] },
+  GLUTES: { position: [0, 0.74, 3.06], target: [0, 0.36, -0.08] },
+  QUADS: { position: [0, 0.58, 3.12], target: [0, -0.46, 0.12] },
+  HAMSTRINGS: { position: [0, 0.48, 3.24], target: [0, -0.46, -0.12] },
+  CALVES: { position: [0, -0.38, 3.1], target: [0, -1.44, 0] },
+};
 
 const VISUAL_REGION_TO_INDEX: Record<VisualRegionId, number> = Object.fromEntries(
   VISUAL_REGION_ORDER.map((regionId, index) => [regionId, index]),
@@ -279,6 +304,34 @@ function resolveRegionIdFromObject(object: THREE.Object3D): VisualRegionId | nul
     if (regionId) return regionId;
     node = node.parent;
   }
+  return null;
+}
+
+function CameraFocusController({ selectedRegionId, controlsRef }: CameraFocusControllerProps) {
+  const { camera } = useThree();
+  const targetPositionRef = useRef(new THREE.Vector3(...CAMERA_DEFAULT_POSITION));
+  const targetLookAtRef = useRef(new THREE.Vector3(...CAMERA_DEFAULT_TARGET));
+
+  useEffect(() => {
+    const focus = selectedRegionId ? CAMERA_FOCUS_BY_REGION[selectedRegionId] : null;
+    const nextPosition = focus?.position ?? CAMERA_DEFAULT_POSITION;
+    const nextTarget = focus?.target ?? CAMERA_DEFAULT_TARGET;
+    targetPositionRef.current.set(...nextPosition);
+    targetLookAtRef.current.set(...nextTarget);
+  }, [selectedRegionId]);
+
+  useFrame((_, delta) => {
+    const smoothing = 1 - Math.exp(-delta * CAMERA_DAMPING);
+    camera.position.lerp(targetPositionRef.current, smoothing);
+    const controls = controlsRef.current;
+    if (controls) {
+      controls.target.lerp(targetLookAtRef.current, smoothing);
+      controls.update();
+      return;
+    }
+    camera.lookAt(targetLookAtRef.current);
+  });
+
   return null;
 }
 
@@ -765,6 +818,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
   const [selectedRegionId, setSelectedRegionId] = useState<VisualRegionId | null>(null);
   const [hoveredRegionId, setHoveredRegionId] = useState<VisualRegionId | null>(null);
   const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const baseRegionById = useMemo(() => new Map(view.regions.map((region) => [region.id, region])), [view.regions]);
   const regionById = useMemo(() => {
@@ -835,6 +889,18 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
       .filter((entry) => entry.requiresRest)
       .sort((a, b) => b.stress - a.stress);
   }, [effectiveStressLevels, insights, regionById]);
+  const stressLeaderboard = useMemo(() => {
+    return VISUAL_REGION_ORDER.map((regionId) => {
+      const stress = getVisualStressLevel(effectiveStressLevels, regionId);
+      return {
+        regionId,
+        stress,
+        stressPct: Math.round(stress * 100),
+      };
+    })
+      .sort((a, b) => b.stress - a.stress)
+      .slice(0, 5);
+  }, [effectiveStressLevels]);
 
   useEffect(() => {
     let cancelled = false;
@@ -869,7 +935,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
 
       <div className="mt-4 border border-cyan-500/30 p-2">
         <div className="relative h-[560px] w-full overflow-hidden border border-cyan-500/20">
-          <Canvas camera={{ position: [0, 1.08, 5.6], fov: 30 }} gl={{ antialias: true }}>
+          <Canvas camera={{ position: [...CAMERA_DEFAULT_POSITION], fov: 30 }} gl={{ antialias: true }}>
             <color attach="background" args={["#02070c"]} />
             <fog attach="fog" args={["#02070c", 4.8, 10]} />
             <ambientLight intensity={0.5} />
@@ -903,7 +969,8 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
               )}
             </Suspense>
 
-            <OrbitControls enablePan={false} minDistance={3.8} maxDistance={8.8} target={[0, 0.94, 0]} />
+            <CameraFocusController selectedRegionId={selectedRegionId} controlsRef={controlsRef} />
+            <OrbitControls ref={controlsRef} enablePan={false} minDistance={2.8} maxDistance={8.8} target={[...CAMERA_DEFAULT_TARGET]} />
           </Canvas>
           {recoveryRecommendations.length > 0 ? (
             <div className="pointer-events-none absolute left-4 top-4 z-20 w-[min(42vw,320px)]">
@@ -928,6 +995,24 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
               </p>
             </div>
           )}
+          <div className="pointer-events-none absolute right-4 top-4 z-20 w-[min(38vw,290px)]">
+            <div className="border border-cyan-500/50 bg-black/86 px-3 py-2 font-mono shadow-[0_0_16px_rgba(73,221,255,0.18)]">
+              <p className="text-[10px] tracking-[0.16em] text-cyan-400">FOCUS TELEMETRY</p>
+              <p className="mt-1 text-[11px] text-cyan-200/95">
+                TARGET {selectedRegionId ? formatVisualRegionLabel(selectedRegionId) : "NONE"}
+              </p>
+              <p className="mt-1 text-[10px] tracking-[0.12em] text-cyan-300/80">
+                {selectedRegionId ? "CAMERA LOCK ACTIVE" : "SELECT A REGION TO ENGAGE CAMERA LOCK"}
+              </p>
+              <div className="mt-2 grid gap-1">
+                {stressLeaderboard.map((entry, index) => (
+                  <p key={`focus-${entry.regionId}`} className="border border-cyan-500/25 px-2 py-1 text-[10px] text-cyan-200/90">
+                    {index + 1}. {formatVisualRegionLabel(entry.regionId)} | LOAD {entry.stressPct}%
+                  </p>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
         <p className="mt-2 text-[10px] tracking-[0.14em] text-cyan-500/85">DRAG TO ROTATE 360 | CLICK MUSCLE GROUP TO SELECT</p>
         {modelAvailable === false ? (
