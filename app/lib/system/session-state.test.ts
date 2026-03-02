@@ -50,6 +50,16 @@ describe("sanitizeSessionLogInput", () => {
     expect(result.activityId).toBe("SOCCER");
   });
 
+  it("accepts valid injury inputs", () => {
+    const result = sanitizeSessionLogInput({
+      injuryRegionId: "QUADS",
+      injurySeverityLevel: 7,
+    });
+
+    expect(result.injuryRegionId).toBe("QUADS");
+    expect(result.injurySeverityLevel).toBe(7);
+  });
+
   it("fills missing or invalid discipline values with defaults", () => {
     const result = sanitizeSessionLogInput({
       recentDisciplineStates: ["COMPROMISED", "INVALID", 7],
@@ -88,6 +98,7 @@ describe("sanitizeSessionLogInput", () => {
       heightCm: 77,
       bodyWeightKg: 4,
       targetWeightKg: 999,
+      injurySeverityLevel: 99,
     });
 
     expect(result.baseRate).toBe(1);
@@ -102,5 +113,6 @@ describe("sanitizeSessionLogInput", () => {
     expect(result.heightCm).toBe(120);
     expect(result.bodyWeightKg).toBe(20);
     expect(result.targetWeightKg).toBe(350);
+    expect(result.injurySeverityLevel).toBe(10);
   });
 });

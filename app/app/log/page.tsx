@@ -23,7 +23,9 @@ import {
   bodySignalFields,
   cadenceOptions,
   disciplineStateOptions,
+  injuryRegionOptions,
   sessionLogFields,
+  type InjuryRegionId,
   type SessionLogInput,
 } from "@/lib/system/session-state";
 import type { DisciplineState } from "@/lib/system/types";
@@ -33,6 +35,8 @@ type ActivityQuestionnaireState = {
   activityId: string;
   durationMinutes: number;
   intensityLevel: number;
+  injuryRegionId: InjuryRegionId;
+  injurySeverityLevel: number;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -46,6 +50,18 @@ function durationToMultiplier(minutes: number): number {
 function intensityToMultiplier(level: number): number {
   return clamp(0.75 + level * 0.14, 0.6, 3);
 }
+
+const injuryRegionLabelById: Record<InjuryRegionId, string> = {
+  NONE: "No injury",
+  CHEST: "Chest",
+  BACK: "Back",
+  SHOULDERS: "Shoulders",
+  ARMS: "Arms",
+  CORE: "Core",
+  GLUTES: "Glutes",
+  QUADS: "Quads",
+  HAMSTRINGS: "Hamstrings",
+};
 
 function buildLiveStressLevels(view: ReturnType<typeof buildBodyRecoveryView>): Partial<Record<BodyRegionId, number>> {
   return Object.fromEntries(
@@ -113,13 +129,24 @@ export default function LogPage() {
       bodyTrainingProfile: activity.profile,
     }));
     setActivityPickerOpen(false);
-    setActivityQuestionnaire({ activityId: activity.id, durationMinutes, intensityLevel });
+    setActivityQuestionnaire({
+      activityId: activity.id,
+      durationMinutes,
+      intensityLevel,
+      injuryRegionId: input.injuryRegionId,
+      injurySeverityLevel: input.injurySeverityLevel,
+    });
   };
 
   const handleQuestionnaireUpdate = (patch: Partial<ActivityQuestionnaireState>) => {
     setActivityQuestionnaire((current) => {
       if (!current) return current;
       const next = { ...current, ...patch };
+      if (next.injuryRegionId === "NONE") {
+        next.injurySeverityLevel = 0;
+      } else if (next.injurySeverityLevel < 1) {
+        next.injurySeverityLevel = 1;
+      }
       const activity = getActivityDefinition(next.activityId);
       setInput((prev) => ({
         ...prev,
@@ -128,6 +155,8 @@ export default function LogPage() {
         bodyTrainingProfile: activity.profile,
         durationMultiplier: durationToMultiplier(next.durationMinutes),
         intensityMultiplier: intensityToMultiplier(next.intensityLevel),
+        injuryRegionId: next.injuryRegionId,
+        injurySeverityLevel: next.injuryRegionId === "NONE" ? 0 : next.injurySeverityLevel,
       }));
       return next;
     });
@@ -420,17 +449,51 @@ export default function LogPage() {
               </label>
 
               <label className="mt-3 grid gap-1">
-                <span className="text-[10px] tracking-[0.14em] text-cyan-500">Intensity (1-10)</span>
+                <span className="text-[10px] tracking-[0.14em] text-cyan-500">
+                  Intensity ({activityQuestionnaire.intensityLevel}/10)
+                </span>
                 <input
-                  type="number"
+                  type="range"
                   min={1}
                   max={10}
                   step={1}
                   value={activityQuestionnaire.intensityLevel}
                   onChange={(event) => handleQuestionnaireUpdate({ intensityLevel: clamp(Number(event.target.value) || 0, 1, 10) })}
-                  className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none transition-colors focus:border-cyan-300"
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full border border-cyan-500/40 bg-black accent-cyan-300"
                 />
               </label>
+
+              <label className="mt-3 grid gap-1">
+                <span className="text-[10px] tracking-[0.14em] text-cyan-500">Injury focus (optional)</span>
+                <select
+                  value={activityQuestionnaire.injuryRegionId}
+                  onChange={(event) => handleQuestionnaireUpdate({ injuryRegionId: event.target.value as InjuryRegionId })}
+                  className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none transition-colors focus:border-cyan-300"
+                >
+                  {injuryRegionOptions.map((regionId) => (
+                    <option key={`injury-option-${regionId}`} value={regionId} className="bg-black text-cyan-200">
+                      {injuryRegionLabelById[regionId]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {activityQuestionnaire.injuryRegionId !== "NONE" ? (
+                <label className="mt-3 grid gap-1">
+                  <span className="text-[10px] tracking-[0.14em] text-cyan-500">
+                    Injury severity ({activityQuestionnaire.injurySeverityLevel}/10)
+                  </span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={activityQuestionnaire.injurySeverityLevel}
+                    onChange={(event) => handleQuestionnaireUpdate({ injurySeverityLevel: clamp(Number(event.target.value) || 0, 1, 10) })}
+                    className="h-2 w-full cursor-pointer appearance-none rounded-full border border-[#ff922e]/55 bg-black accent-[#ffb45f]"
+                  />
+                </label>
+              ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <button

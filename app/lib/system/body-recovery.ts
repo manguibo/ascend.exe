@@ -28,6 +28,7 @@ export type PhysicalDevelopmentSignals = {
 
 export type BodyRecoveryView = {
   profile: Exclude<BodyTrainingProfile, "AUTO">;
+  injury: { regionId: BodyRegionId; severityLevel: number } | null;
   regions: readonly BodyRegionSignal[];
   development: PhysicalDevelopmentSignals;
 };
@@ -110,11 +111,13 @@ function getGraceDays(expectedCadence: SessionLogInput["expectedCadence"]): numb
 }
 
 function getSessionStress(input: SessionLogInput): number {
+  const injuryStressBonus = input.injuryRegionId === "NONE" ? 0 : input.injurySeverityLevel * 1.8;
   return clamp(
     (input.intensityMultiplier - 0.8) * 35 +
       (input.durationMultiplier - 0.8) * 30 +
       (input.consistencyMultiplier - 0.8) * 25 +
-      (1 - input.outcomeMultiplier) * 15,
+      (1 - input.outcomeMultiplier) * 15 +
+      injuryStressBonus,
     8,
     95,
   );
@@ -132,15 +135,15 @@ function getRecoveryCapacity(input: SessionLogInput): number {
   );
 }
 
-function estimateEtaDays(region: BodyRegionSignal, deltaPct: number): number {
-  if (region.readinessPct >= 67) {
+function estimateEtaDays(region: BodyRegionSignal, deltaPct: number, injurySeverityLevel: number): number {
+  if (region.readinessPct >= 67 && injurySeverityLevel <= 0) {
     return 0;
   }
 
   const readiness = clamp(region.readinessPct, 0, 100);
   const recoveryPct = clamp(region.recoveryPct, 0, 100);
   const loadPct = clamp(region.loadPct, 0, 100);
-  const severeFatigue = readiness <= 20 && recoveryPct <= 25 && loadPct >= 85;
+  const severeFatigue = (readiness <= 20 && recoveryPct <= 25 && loadPct >= 85) || injurySeverityLevel >= 8;
 
   let etaBase = 2;
   if (readiness >= 55) etaBase = 1;
@@ -152,9 +155,11 @@ function estimateEtaDays(region: BodyRegionSignal, deltaPct: number): number {
   const loadAdjustment = loadPct >= 85 ? 1 : loadPct >= 75 ? 0.5 : 0;
   const recoveryAdjustment = recoveryPct <= 25 ? 1 : recoveryPct <= 40 ? 0.5 : 0;
   const trendAdjustment = deltaPct >= 5 ? -1 : deltaPct <= -5 ? 1 : 0;
+  const injuryAdjustment = injurySeverityLevel > 0 ? Math.ceil(injurySeverityLevel / 2.2) : 0;
 
-  const eta = Math.round(etaBase + loadAdjustment + recoveryAdjustment + trendAdjustment);
-  return clamp(eta, 1, severeFatigue ? 7 : 4);
+  const eta = Math.round(etaBase + loadAdjustment + recoveryAdjustment + trendAdjustment + injuryAdjustment);
+  const minEta = injurySeverityLevel > 0 ? 2 : 1;
+  return clamp(eta, minEta, severeFatigue ? 10 : 4);
 }
 
 export function buildBodyRecoveryView(input: SessionLogInput): BodyRecoveryView {
@@ -163,11 +168,21 @@ export function buildBodyRecoveryView(input: SessionLogInput): BodyRecoveryView 
   const stress = getSessionStress(input);
   const recovery = getRecoveryCapacity(input);
   const weightPenalty = Math.abs(input.bodyWeightKg - input.targetWeightKg) * 1.2;
+  const injury =
+    input.injuryRegionId === "NONE"
+      ? null
+      : {
+          regionId: input.injuryRegionId,
+          severityLevel: clamp(input.injurySeverityLevel, 0, 10),
+        };
 
   const regions = regionOrder.map((id) => {
-    const loadPct = round(loadProfile[id] * 100);
-    const readinessPct = round(clamp(52 + recovery * 0.7 - loadProfile[id] * stress * 1.05 - weightPenalty, 5, 99));
-    const recoveryPct = round(clamp(recovery + 30 - loadProfile[id] * stress * 0.45, 0, 100));
+    const injurySeverity = injury?.regionId === id ? injury.severityLevel / 10 : 0;
+    const injuryLoadBoost = injurySeverity * 0.22;
+    const effectiveLoad = clamp(loadProfile[id] + injuryLoadBoost, 0.08, 1.4);
+    const loadPct = round(clamp(effectiveLoad * 100, 0, 100));
+    const readinessPct = round(clamp(52 + recovery * 0.7 - effectiveLoad * stress * 1.05 - weightPenalty - injurySeverity * 28, 5, 99));
+    const recoveryPct = round(clamp(recovery + 30 - effectiveLoad * stress * 0.45 - injurySeverity * 36, 0, 100));
     return {
       id,
       label: id,
@@ -209,6 +224,7 @@ export function buildBodyRecoveryView(input: SessionLogInput): BodyRecoveryView 
 
   return {
     profile,
+    injury,
     regions,
     development: {
       bodyWeightKg: input.bodyWeightKg,
@@ -229,7 +245,8 @@ export function buildBodyRegionInsights(view: BodyRecoveryView, historyEntries: 
     view.regions.map((region) => {
       const previousReadiness = previous?.regionReadiness?.[region.id];
       const deltaPct = typeof previousReadiness === "number" ? Math.round(region.readinessPct - previousReadiness) : 0;
-      const etaDays = estimateEtaDays(region, deltaPct);
+      const injurySeverityLevel = view.injury?.regionId === region.id ? view.injury.severityLevel : 0;
+      const etaDays = estimateEtaDays(region, deltaPct, injurySeverityLevel);
       return [region.id, { deltaPct, etaDays: Number.isFinite(etaDays) ? etaDays : null }];
     }),
   ) as Record<BodyRegionId, BodyRegionInsight>;

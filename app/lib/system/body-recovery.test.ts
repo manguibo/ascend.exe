@@ -136,4 +136,49 @@ describe("buildBodyRecoveryView", () => {
       expect(insight.etaDays ?? 0).toBeLessThanOrEqual(4);
     });
   });
+
+  it("extends recovery ETA for an injured target region", () => {
+    const baseView = buildBodyRecoveryView({
+      ...defaultSessionLogInput,
+      injuryRegionId: "NONE",
+      injurySeverityLevel: 0,
+      activityId: "ROCK_CLIMBING",
+    });
+    const injuredView = buildBodyRecoveryView({
+      ...defaultSessionLogInput,
+      injuryRegionId: "ARMS",
+      injurySeverityLevel: 8,
+      activityId: "ROCK_CLIMBING",
+    });
+
+    const history = [
+      {
+        id: "h-1",
+        timestampIso: "2026-01-01T00:00:00.000Z",
+        totalXp: 1000,
+        sessionXp: 100,
+        discipline: "STABLE",
+        activityCodename: "CLIMB",
+        profile: "PULL",
+        regionReadiness: { ARMS: 58, BACK: 57, CORE: 60, CHEST: 60, SHOULDERS: 59, GLUTES: 61, QUADS: 61, HAMSTRINGS: 61 },
+        developmentAvgPct: 60,
+      },
+      {
+        id: "h-2",
+        timestampIso: "2026-01-02T00:00:00.000Z",
+        totalXp: 1100,
+        sessionXp: 100,
+        discipline: "STABLE",
+        activityCodename: "CLIMB",
+        profile: "PULL",
+        regionReadiness: { ARMS: 57, BACK: 56, CORE: 59, CHEST: 59, SHOULDERS: 58, GLUTES: 60, QUADS: 60, HAMSTRINGS: 60 },
+        developmentAvgPct: 60,
+      },
+    ];
+
+    const baseInsights = buildBodyRegionInsights(baseView, history);
+    const injuredInsights = buildBodyRegionInsights(injuredView, history);
+
+    expect((injuredInsights.ARMS.etaDays ?? 0)).toBeGreaterThan(baseInsights.ARMS.etaDays ?? 0);
+  });
 });

@@ -3,6 +3,7 @@ import type { TrainingCadence } from "@/lib/xp/calculations";
 import { activityCatalog, defaultActivityDefinition } from "./activity-catalog";
 
 export type BodyTrainingProfile = "AUTO" | "FULL" | "PUSH" | "PULL" | "LOWER" | "CONDITIONING";
+export type InjuryRegionId = "NONE" | "CHEST" | "BACK" | "SHOULDERS" | "ARMS" | "CORE" | "GLUTES" | "QUADS" | "HAMSTRINGS";
 
 export type SessionLogInput = {
   primaryActivityCodename: string;
@@ -22,6 +23,8 @@ export type SessionLogInput = {
   bodyWeightKg: number;
   targetWeightKg: number;
   fitnessBaselinePct: number;
+  injuryRegionId: InjuryRegionId;
+  injurySeverityLevel: number;
   recentDisciplineStates: DisciplineState[];
 };
 
@@ -46,6 +49,8 @@ export const defaultSessionLogInput: SessionLogInput = {
   bodyWeightKg: 82,
   targetWeightKg: 80,
   fitnessBaselinePct: 66,
+  injuryRegionId: "NONE",
+  injurySeverityLevel: 0,
   recentDisciplineStates: ["OPTIMAL", "STABLE", "STABLE", "DECLINING", "DECLINING", "DECLINING", "DECLINING"],
 };
 
@@ -64,6 +69,8 @@ type SessionLogField = {
     | "bodyWeightKg"
     | "targetWeightKg"
     | "fitnessBaselinePct"
+    | "injuryRegionId"
+    | "injurySeverityLevel"
   >;
   label: string;
   step?: string;
@@ -97,6 +104,7 @@ export const bodySignalFields: readonly BodySignalField[] = [
 export const disciplineStateOptions: readonly DisciplineState[] = ["OPTIMAL", "STABLE", "DECLINING", "COMPROMISED"];
 export const cadenceOptions: readonly TrainingCadence[] = ["DAILY", "THREE_PER_WEEK", "WEEKLY"];
 export const bodyTrainingProfileOptions: readonly BodyTrainingProfile[] = ["AUTO", "FULL", "PUSH", "PULL", "LOWER", "CONDITIONING"];
+export const injuryRegionOptions: readonly InjuryRegionId[] = ["NONE", "CHEST", "BACK", "SHOULDERS", "ARMS", "CORE", "GLUTES", "QUADS", "HAMSTRINGS"];
 export const activityOptions = activityCatalog.map((activity) => ({ id: activity.id, label: activity.label }));
 
 function parseNumber(value: unknown, fallback: number): number {
@@ -148,6 +156,14 @@ function parseBodyTrainingProfile(value: unknown): BodyTrainingProfile {
     : defaultSessionLogInput.bodyTrainingProfile;
 }
 
+function parseInjuryRegion(value: unknown): InjuryRegionId {
+  if (typeof value !== "string") {
+    return defaultSessionLogInput.injuryRegionId;
+  }
+
+  return injuryRegionOptions.includes(value as InjuryRegionId) ? (value as InjuryRegionId) : defaultSessionLogInput.injuryRegionId;
+}
+
 function parseDisciplineState(value: unknown, fallback: DisciplineState): DisciplineState {
   if (typeof value !== "string") {
     return fallback;
@@ -187,6 +203,8 @@ export function sanitizeSessionLogInput(rawValue: unknown): SessionLogInput {
     bodyWeightKg: parseBoundedNumber(raw.bodyWeightKg, defaultSessionLogInput.bodyWeightKg, 20, 350),
     targetWeightKg: parseBoundedNumber(raw.targetWeightKg, defaultSessionLogInput.targetWeightKg, 20, 350),
     fitnessBaselinePct: parsePercent(raw.fitnessBaselinePct, defaultSessionLogInput.fitnessBaselinePct),
+    injuryRegionId: parseInjuryRegion(raw.injuryRegionId),
+    injurySeverityLevel: parseBoundedNumber(raw.injurySeverityLevel, defaultSessionLogInput.injurySeverityLevel, 0, 10),
     recentDisciplineStates: parseRecentDisciplineStates(raw.recentDisciplineStates),
   };
 }
