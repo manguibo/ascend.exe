@@ -12,6 +12,7 @@ import { SystemTelemetryPanel } from "@/components/system/system-telemetry-panel
 import { TacticalReveal } from "@/components/system/tactical-reveal";
 import { XpFactorBars } from "@/components/system/xp-factor-bars";
 import { XpRetentionBars } from "@/components/system/xp-retention-bars";
+import { displayWeightToKg, getHeightUnitLabel, getWeightUnitLabel, heightCmToDisplay, heightDisplayToCm, kgToDisplayWeight } from "@/lib/system/units";
 import { activityCatalog, getActivityDefinition } from "@/lib/system/activity-catalog";
 import { buildBodyRecoveryView, buildBodyRegionInsights, getRecentStressLevels, type BodyRegionId } from "@/lib/system/body-recovery";
 import { applySessionProfile, resetSessionInputToStandard, sessionProfiles } from "@/lib/system/profiles";
@@ -100,6 +101,26 @@ export default function LogPage() {
     const parsed = Number(rawValue);
     const value = Number.isFinite(parsed) ? parsed : 0;
     setInput((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBodySignalChange = (field: "heightCm" | "bodyWeightKg" | "targetWeightKg" | "fitnessBaselinePct", rawValue: string) => {
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) {
+      return;
+    }
+    setInput((prev) => {
+      if (field === "fitnessBaselinePct") {
+        return { ...prev, fitnessBaselinePct: clamp(parsed, 0, 100) };
+      }
+      if (field === "heightCm") {
+        return { ...prev, heightCm: clamp(heightDisplayToCm(parsed, prev.unitSystem), 120, 230) };
+      }
+      const metricWeight = displayWeightToKg(parsed, prev.unitSystem);
+      if (field === "bodyWeightKg") {
+        return { ...prev, bodyWeightKg: clamp(metricWeight, 20, 350) };
+      }
+      return { ...prev, targetWeightKg: clamp(metricWeight, 20, 350) };
+    });
   };
 
   const handleDisciplineChange = (index: number, state: DisciplineState) => {
@@ -277,13 +298,29 @@ export default function LogPage() {
               <form className="grid gap-3 font-mono">
                 {bodySignalFields.map((field) => (
                   <label key={field.key} className="grid gap-1">
-                    <span className="text-xs tracking-[0.16em] text-cyan-500">{field.label}</span>
+                    <span className="text-xs tracking-[0.16em] text-cyan-500">
+                      {field.key === "heightCm"
+                        ? `HEIGHT (${getHeightUnitLabel(input.unitSystem).toUpperCase()})`
+                        : field.key === "bodyWeightKg"
+                          ? `BODY WEIGHT (${getWeightUnitLabel(input.unitSystem).toUpperCase()})`
+                          : field.key === "targetWeightKg"
+                            ? `TARGET WEIGHT (${getWeightUnitLabel(input.unitSystem).toUpperCase()})`
+                            : field.label}
+                    </span>
                     <input
                       type="number"
                       inputMode="decimal"
-                      step={field.step ?? "0.1"}
-                      value={input[field.key]}
-                      onChange={(event) => handleChange(field.key, event.target.value)}
+                      step={field.key === "heightCm" ? (input.unitSystem === "IMPERIAL" ? "0.1" : "1") : field.step ?? "0.1"}
+                      value={
+                        field.key === "heightCm"
+                          ? heightCmToDisplay(input.heightCm, input.unitSystem)
+                          : field.key === "bodyWeightKg"
+                            ? kgToDisplayWeight(input.bodyWeightKg, input.unitSystem)
+                            : field.key === "targetWeightKg"
+                              ? kgToDisplayWeight(input.targetWeightKg, input.unitSystem)
+                              : input[field.key]
+                      }
+                      onChange={(event) => handleBodySignalChange(field.key, event.target.value)}
                       className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none transition-colors focus:border-cyan-300"
                     />
                   </label>

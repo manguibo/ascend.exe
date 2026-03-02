@@ -9,6 +9,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { BodyRecoveryView, BodyRegionInsight, BodyRegionSignal } from "@/lib/system/body-recovery";
 import { deriveAvatarMorphParams } from "@/lib/system/avatar-profile";
 import type { SessionLogInput } from "@/lib/system/session-state";
+import { formatHeight, formatWeight, formatWeightDelta } from "@/lib/system/units";
 import { MicroMetricGrid } from "./micro-metric-grid";
 
 type BodyRecoveryDiagramProps = {
@@ -1166,10 +1167,10 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
         <MicroMetricGrid
           columns={4}
           items={[
-            { label: "HEIGHT", value: `${input.heightCm} CM` },
-            { label: "BODY WEIGHT", value: `${view.development.bodyWeightKg} KG` },
-            { label: "TARGET WEIGHT", value: `${view.development.targetWeightKg} KG`, tone: "subtle" },
-            { label: "WEIGHT DELTA", value: `${view.development.weightDeltaKg > 0 ? "+" : ""}${view.development.weightDeltaKg} KG`, tone: "subtle" },
+            { label: "HEIGHT", value: formatHeight(input.heightCm, input.unitSystem) },
+            { label: "BODY WEIGHT", value: formatWeight(view.development.bodyWeightKg, input.unitSystem) },
+            { label: "TARGET WEIGHT", value: formatWeight(view.development.targetWeightKg, input.unitSystem), tone: "subtle" },
+            { label: "WEIGHT DELTA", value: formatWeightDelta(view.development.weightDeltaKg, input.unitSystem), tone: "subtle" },
             { label: "DEVELOPMENT", value: view.development.status, tone: view.development.status === "DEGRADED" ? "red" : "purple" },
             { label: "COMPOSITION", value: `${view.development.compositionPct}%` },
             { label: "STRENGTH", value: `${view.development.strengthPct}%` },

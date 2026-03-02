@@ -2,8 +2,9 @@
 
 import { useMemo } from "react";
 import { useSystemSnapshot } from "@/lib/system/use-system-snapshot";
+import { displayWeightToKg, formatHeight, formatWeight, getHeightUnitLabel, getWeightUnitLabel, heightDisplayToCm, heightCmToDisplay, kgToDisplayWeight } from "@/lib/system/units";
 import { applySessionProfile, resetSessionInputToStandard, sessionProfiles } from "@/lib/system/profiles";
-import { cadenceOptions, type SessionLogInput } from "@/lib/system/session-state";
+import { cadenceOptions, unitSystemOptions, type SessionLogInput, type UnitSystem } from "@/lib/system/session-state";
 import { useUiPanelOpen } from "@/lib/system/use-ui-panel-open";
 import { SessionProfileButtons } from "./session-profile-buttons";
 
@@ -21,8 +22,8 @@ export function GlobalQuickActions() {
   const { open, toggleOpen } = useUiPanelOpen("global-quick-actions", false);
 
   const summary = useMemo(() => {
-    return `XP ${snapshot.xp.totalXp} | ACTIVITY ${snapshot.activity.codename} | HEIGHT ${input.heightCm} CM | WEIGHT ${input.bodyWeightKg} KG`;
-  }, [snapshot.xp.totalXp, snapshot.activity.codename, input.heightCm, input.bodyWeightKg]);
+    return `XP ${snapshot.xp.totalXp} | ACTIVITY ${snapshot.activity.codename} | HEIGHT ${formatHeight(input.heightCm, input.unitSystem)} | WEIGHT ${formatWeight(input.bodyWeightKg, input.unitSystem)}`;
+  }, [snapshot.xp.totalXp, snapshot.activity.codename, input.heightCm, input.bodyWeightKg, input.unitSystem]);
 
   const setNumberField = (field: keyof Pick<SessionLogInput, "heightCm" | "bodyWeightKg" | "targetWeightKg" | "fitnessBaselinePct">, rawValue: string) => {
     setInput((current) => {
@@ -31,9 +32,11 @@ export function GlobalQuickActions() {
         return { ...current, [field]: clamp(parsed, 0, 100) };
       }
       if (field === "heightCm") {
-        return { ...current, [field]: clamp(parsed, 120, 230) };
+        const metricHeight = heightDisplayToCm(parsed, current.unitSystem);
+        return { ...current, [field]: clamp(metricHeight, 120, 230) };
       }
-      return { ...current, [field]: clamp(parsed, 0, 500) };
+      const metricWeight = displayWeightToKg(parsed, current.unitSystem);
+      return { ...current, [field]: clamp(metricWeight, 0, 500) };
     });
   };
 
@@ -56,34 +59,34 @@ export function GlobalQuickActions() {
               <p className="text-[10px] tracking-[0.16em] text-cyan-500/90">PERSONAL BASELINE</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="grid gap-1">
-                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">HEIGHT (CM)</span>
+                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">HEIGHT ({getHeightUnitLabel(input.unitSystem).toUpperCase()})</span>
                   <input
                     type="number"
                     inputMode="decimal"
-                    step="1"
-                    value={input.heightCm}
+                    step={input.unitSystem === "IMPERIAL" ? "0.1" : "1"}
+                    value={heightCmToDisplay(input.heightCm, input.unitSystem)}
                     onChange={(event) => setNumberField("heightCm", event.target.value)}
                     className="border border-cyan-500/40 bg-black px-2 py-1.5 text-xs text-cyan-200 outline-none transition-colors focus:border-cyan-300"
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">CURRENT WEIGHT (KG)</span>
+                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">CURRENT WEIGHT ({getWeightUnitLabel(input.unitSystem).toUpperCase()})</span>
                   <input
                     type="number"
                     inputMode="decimal"
                     step="0.1"
-                    value={input.bodyWeightKg}
+                    value={kgToDisplayWeight(input.bodyWeightKg, input.unitSystem)}
                     onChange={(event) => setNumberField("bodyWeightKg", event.target.value)}
                     className="border border-cyan-500/40 bg-black px-2 py-1.5 text-xs text-cyan-200 outline-none transition-colors focus:border-cyan-300"
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">TARGET WEIGHT (KG)</span>
+                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">TARGET WEIGHT ({getWeightUnitLabel(input.unitSystem).toUpperCase()})</span>
                   <input
                     type="number"
                     inputMode="decimal"
                     step="0.1"
-                    value={input.targetWeightKg}
+                    value={kgToDisplayWeight(input.targetWeightKg, input.unitSystem)}
                     onChange={(event) => setNumberField("targetWeightKg", event.target.value)}
                     className="border border-cyan-500/40 bg-black px-2 py-1.5 text-xs text-cyan-200 outline-none transition-colors focus:border-cyan-300"
                   />
@@ -109,6 +112,20 @@ export function GlobalQuickActions() {
                     {cadenceOptions.map((option) => (
                       <option key={option} value={option} className="bg-black text-cyan-200">
                         {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">MEASUREMENT SYSTEM</span>
+                  <select
+                    value={input.unitSystem}
+                    onChange={(event) => setInput((current) => ({ ...current, unitSystem: event.target.value as UnitSystem }))}
+                    className="border border-cyan-500/40 bg-black px-2 py-1.5 text-xs text-cyan-200 outline-none transition-colors focus:border-cyan-300"
+                  >
+                    {unitSystemOptions.map((option) => (
+                      <option key={`global-unit-${option}`} value={option} className="bg-black text-cyan-200">
+                        {option === "METRIC" ? "Metric (cm / kg)" : "Imperial (in / lb)"}
                       </option>
                     ))}
                   </select>

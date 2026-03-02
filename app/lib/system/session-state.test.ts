@@ -42,6 +42,14 @@ describe("sanitizeSessionLogInput", () => {
     expect(result.bodyTrainingProfile).toBe("PULL");
   });
 
+  it("accepts valid unit system", () => {
+    const result = sanitizeSessionLogInput({
+      unitSystem: "IMPERIAL",
+    });
+
+    expect(result.unitSystem).toBe("IMPERIAL");
+  });
+
   it("accepts valid activity id", () => {
     const result = sanitizeSessionLogInput({
       activityId: "SOCCER",

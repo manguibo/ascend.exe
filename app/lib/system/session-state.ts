@@ -4,10 +4,12 @@ import { activityCatalog, defaultActivityDefinition } from "./activity-catalog";
 
 export type BodyTrainingProfile = "AUTO" | "FULL" | "PUSH" | "PULL" | "LOWER" | "CONDITIONING";
 export type InjuryRegionId = "NONE" | "CHEST" | "BACK" | "SHOULDERS" | "ARMS" | "CORE" | "GLUTES" | "QUADS" | "HAMSTRINGS";
+export type UnitSystem = "METRIC" | "IMPERIAL";
 
 export type SessionLogInput = {
   primaryActivityCodename: string;
   activityId: string;
+  unitSystem: UnitSystem;
   bodyTrainingProfile: BodyTrainingProfile;
   expectedCadence: TrainingCadence;
   baseRate: number;
@@ -34,6 +36,7 @@ export const SESSION_LOG_UPDATED_EVENT = "ascend:session-log-updated";
 export const defaultSessionLogInput: SessionLogInput = {
   primaryActivityCodename: defaultActivityDefinition.codename,
   activityId: defaultActivityDefinition.id,
+  unitSystem: "METRIC",
   bodyTrainingProfile: "AUTO",
   expectedCadence: "DAILY",
   baseRate: 120,
@@ -62,6 +65,7 @@ type SessionLogField = {
     keyof SessionLogInput,
     | "primaryActivityCodename"
     | "activityId"
+    | "unitSystem"
     | "bodyTrainingProfile"
     | "expectedCadence"
     | "recentDisciplineStates"
@@ -104,6 +108,7 @@ export const bodySignalFields: readonly BodySignalField[] = [
 export const disciplineStateOptions: readonly DisciplineState[] = ["OPTIMAL", "STABLE", "DECLINING", "COMPROMISED"];
 export const cadenceOptions: readonly TrainingCadence[] = ["DAILY", "THREE_PER_WEEK", "WEEKLY"];
 export const bodyTrainingProfileOptions: readonly BodyTrainingProfile[] = ["AUTO", "FULL", "PUSH", "PULL", "LOWER", "CONDITIONING"];
+export const unitSystemOptions: readonly UnitSystem[] = ["METRIC", "IMPERIAL"];
 export const injuryRegionOptions: readonly InjuryRegionId[] = ["NONE", "CHEST", "BACK", "SHOULDERS", "ARMS", "CORE", "GLUTES", "QUADS", "HAMSTRINGS"];
 export const activityOptions = activityCatalog.map((activity) => ({ id: activity.id, label: activity.label }));
 
@@ -156,6 +161,14 @@ function parseBodyTrainingProfile(value: unknown): BodyTrainingProfile {
     : defaultSessionLogInput.bodyTrainingProfile;
 }
 
+function parseUnitSystem(value: unknown): UnitSystem {
+  if (typeof value !== "string") {
+    return defaultSessionLogInput.unitSystem;
+  }
+
+  return unitSystemOptions.includes(value as UnitSystem) ? (value as UnitSystem) : defaultSessionLogInput.unitSystem;
+}
+
 function parseInjuryRegion(value: unknown): InjuryRegionId {
   if (typeof value !== "string") {
     return defaultSessionLogInput.injuryRegionId;
@@ -188,6 +201,7 @@ export function sanitizeSessionLogInput(rawValue: unknown): SessionLogInput {
   return {
     primaryActivityCodename: parseActivityCodename(raw.primaryActivityCodename),
     activityId: parseActivityId(raw.activityId),
+    unitSystem: parseUnitSystem(raw.unitSystem),
     bodyTrainingProfile: parseBodyTrainingProfile(raw.bodyTrainingProfile),
     expectedCadence: parseCadence(raw.expectedCadence),
     baseRate: parseBoundedNumber(raw.baseRate, defaultSessionLogInput.baseRate, 1, 10_000),
