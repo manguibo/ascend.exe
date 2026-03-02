@@ -74,6 +74,15 @@ type ExoskeletonFallbackProps = {
   onRegionSelect: (regionId: VisualRegionId) => void;
 };
 
+type AvatarMeshBinding = {
+  baseMaterial: THREE.MeshStandardMaterial | null;
+  edgeMaterial: THREE.LineBasicMaterial | null;
+  heatMaterial: THREE.ShaderMaterial | null;
+  isDynamicMesh: boolean;
+  regionId: VisualRegionId;
+  shellMaterial: THREE.MeshStandardMaterial | null;
+};
+
 const VISUAL_REGION_ORDER: readonly VisualRegionId[] = [
   "FINGERS",
   "FOREARMS",
@@ -536,6 +545,8 @@ function AvatarModel({
     });
     return nodes;
   }, [cloned]);
+  const meshBindingsRef = useRef<AvatarMeshBinding[]>([]);
+  const lastHoverSampleAtRef = useRef(0);
   const modelFit = useMemo(() => {
     const bounds = new THREE.Box3().setFromObject(cloned);
     const size = bounds.getSize(new THREE.Vector3());
@@ -548,6 +559,7 @@ function AvatarModel({
   }, [cloned]);
 
   useEffect(() => {
+    const nextBindings: AvatarMeshBinding[] = [];
     meshNodes.forEach((mesh) => {
       const regionId: VisualRegionId = "ABS";
       mesh.userData.regionId = regionId;
@@ -560,8 +572,11 @@ function AvatarModel({
       }
 
       const hasOverlay = mesh.children.some((child) => child.userData?.overlayPart === true);
+      let shellMaterial: THREE.MeshStandardMaterial | null = null;
+      let edgeMaterial: THREE.LineBasicMaterial | null = null;
+      let heatMaterial: THREE.ShaderMaterial | null = null;
       if (!hasOverlay) {
-        const shellMaterial = new THREE.MeshStandardMaterial({
+        shellMaterial = new THREE.MeshStandardMaterial({
           color: "#070d12",
           transparent: true,
           opacity: 0.38,
@@ -571,7 +586,7 @@ function AvatarModel({
           emissiveIntensity: 0.85,
           depthWrite: false,
         });
-        const shell = new THREE.Mesh(mesh.geometry.clone(), shellMaterial);
+        const shell = new THREE.Mesh(mesh.geometry, shellMaterial);
         shell.scale.setScalar(CYBER_SHELL_SCALE);
         shell.renderOrder = 2;
         shell.userData.overlayPart = true;
@@ -579,8 +594,8 @@ function AvatarModel({
         shell.userData.regionId = regionId;
         mesh.add(shell);
 
-        const edgeMaterial = new THREE.LineBasicMaterial({ color: "#49ddff", transparent: true, opacity: 0.52, depthWrite: false });
-        const edgeLines = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 37), edgeMaterial);
+        edgeMaterial = new THREE.LineBasicMaterial({ color: "#49ddff", transparent: true, opacity: 0.52, depthWrite: false });
+        const edgeLines = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 48), edgeMaterial);
         edgeLines.scale.setScalar(CYBER_SHELL_SCALE + 0.0007);
         edgeLines.renderOrder = 3;
         edgeLines.userData.overlayPart = true;
@@ -590,7 +605,8 @@ function AvatarModel({
         mesh.add(edgeLines);
 
         if (!mesh.children.some((child) => child.userData?.overlayKind === "mask-heat")) {
-          const heatOverlay = new THREE.Mesh(mesh.geometry, createMaskHeatMaterial(samplingTexture));
+          heatMaterial = createMaskHeatMaterial(samplingTexture);
+          const heatOverlay = new THREE.Mesh(mesh.geometry, heatMaterial);
           heatOverlay.scale.setScalar(CYBER_SHELL_SCALE + 0.0018);
           heatOverlay.renderOrder = 4;
           heatOverlay.userData.overlayPart = true;
@@ -599,7 +615,38 @@ function AvatarModel({
           mesh.add(heatOverlay);
         }
       }
+
+      if (!shellMaterial || !edgeMaterial || !heatMaterial) {
+        mesh.children.forEach((child) => {
+          if (child.userData?.overlayKind === "shell") {
+            const mat = (child as THREE.Mesh).material;
+            const shellStd = Array.isArray(mat) ? mat[0] : mat;
+            if (shellStd instanceof THREE.MeshStandardMaterial) shellMaterial = shellStd;
+          }
+          if (child.userData?.overlayKind === "edges") {
+            const mat = (child as THREE.LineSegments).material;
+            const edgeLine = Array.isArray(mat) ? mat[0] : mat;
+            if (edgeLine instanceof THREE.LineBasicMaterial) edgeMaterial = edgeLine;
+          }
+          if (child.userData?.overlayKind === "mask-heat") {
+            const mat = (child as THREE.Mesh).material;
+            const heatShader = Array.isArray(mat) ? mat[0] : mat;
+            if (heatShader instanceof THREE.ShaderMaterial) heatMaterial = heatShader;
+          }
+        });
+      }
+
+      const baseMaterial = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      nextBindings.push({
+        baseMaterial: baseMaterial instanceof THREE.MeshStandardMaterial ? baseMaterial : null,
+        edgeMaterial,
+        heatMaterial,
+        isDynamicMesh: Boolean(mesh.userData.dynamicRegion),
+        regionId,
+        shellMaterial,
+      });
     });
+    meshBindingsRef.current = nextBindings;
   }, [meshNodes, samplingTexture]);
 
   useFrame((state) => {
@@ -622,14 +669,13 @@ function AvatarModel({
   );
 
   useEffect(() => {
-    meshNodes.forEach((mesh) => {
-      const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      if (!(material instanceof THREE.MeshStandardMaterial)) return;
-      const regionId = mesh.userData.regionId as VisualRegionId | undefined;
-      if (!regionId) return;
+    meshBindingsRef.current.forEach((binding) => {
+      const material = binding.baseMaterial;
+      if (!material) return;
+      const regionId = binding.regionId;
       const region = regionById.get(regionId);
       if (!region) return;
-      const isDynamicMesh = Boolean(mesh.userData.dynamicRegion);
+      const isDynamicMesh = binding.isDynamicMesh;
 
       const selected = selectedRegionId === regionId;
       const hovered = hoveredRegionId === regionId;
@@ -646,42 +692,36 @@ function AvatarModel({
       material.roughness = 0.28;
       material.metalness = 0.84;
 
-      mesh.children.forEach((child) => {
-        if (child.userData?.overlayPart !== true) return;
-        if (child.userData?.overlayKind === "shell") {
-          const shellMat = (child as THREE.Mesh).material;
-          const shellStd = Array.isArray(shellMat) ? shellMat[0] : shellMat;
-          if (shellStd instanceof THREE.MeshStandardMaterial) {
-            shellStd.color.copy(activeTone.clone().multiplyScalar(0.2));
-            shellStd.opacity = selected ? 0.68 : hovered ? 0.58 : isStressed ? 0.56 : 0.48;
-            shellStd.emissive.copy(selected ? activeTone : activeTone.clone().multiplyScalar(hovered ? 0.78 : 0.5));
-            shellStd.emissiveIntensity = selected ? 2.05 + stressLevel * 0.65 : hovered ? 1.38 + stressLevel * 0.45 : 0.94 + stressLevel * 0.35;
-          }
-        }
-        if (child.userData?.overlayKind === "edges") {
-          const edgeMat = (child as THREE.LineSegments).material;
-          const edgeLine = Array.isArray(edgeMat) ? edgeMat[0] : edgeMat;
-          if (edgeLine instanceof THREE.LineBasicMaterial) {
-            edgeLine.color.copy(activeTone);
-            edgeLine.opacity = selected ? 0.98 : hovered ? 0.8 : 0.58 + stressLevel * 0.24;
-          }
-        }
-        if (child.userData?.overlayKind === "mask-heat") {
-          const heatMesh = child as THREE.Mesh;
-          const heatMaterial = heatMesh.material;
-          const heatShader = Array.isArray(heatMaterial) ? heatMaterial[0] : heatMaterial;
-          if (heatShader instanceof THREE.ShaderMaterial) {
-            heatShader.uniforms.uStressLevels.value = stressUniformArray;
-            heatShader.uniforms.uSelectedIndex.value = selectedRegionId ? VISUAL_REGION_TO_INDEX[selectedRegionId] : -1;
-            heatShader.uniforms.uHoveredIndex.value = hoveredRegionId ? VISUAL_REGION_TO_INDEX[hoveredRegionId] : -1;
-          }
-        }
-      });
+      const shellStd = binding.shellMaterial;
+      if (shellStd) {
+        shellStd.color.copy(activeTone.clone().multiplyScalar(0.2));
+        shellStd.opacity = selected ? 0.68 : hovered ? 0.58 : isStressed ? 0.56 : 0.48;
+        shellStd.emissive.copy(selected ? activeTone : activeTone.clone().multiplyScalar(hovered ? 0.78 : 0.5));
+        shellStd.emissiveIntensity = selected ? 2.05 + stressLevel * 0.65 : hovered ? 1.38 + stressLevel * 0.45 : 0.94 + stressLevel * 0.35;
+      }
+
+      const edgeLine = binding.edgeMaterial;
+      if (edgeLine) {
+        edgeLine.color.copy(activeTone);
+        edgeLine.opacity = selected ? 0.98 : hovered ? 0.8 : 0.58 + stressLevel * 0.24;
+      }
+
+      const heatShader = binding.heatMaterial;
+      if (heatShader) {
+        heatShader.uniforms.uStressLevels.value = stressUniformArray;
+        heatShader.uniforms.uSelectedIndex.value = selectedRegionId ? VISUAL_REGION_TO_INDEX[selectedRegionId] : -1;
+        heatShader.uniforms.uHoveredIndex.value = hoveredRegionId ? VISUAL_REGION_TO_INDEX[hoveredRegionId] : -1;
+      }
     });
-  }, [hoveredRegionId, meshNodes, regionById, selectedRegionId, stressUniformArray, stressedRegionLevels]);
+  }, [hoveredRegionId, regionById, selectedRegionId, stressUniformArray, stressedRegionLevels]);
 
   const onPointerMove = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
+    const now = event.nativeEvent.timeStamp;
+    if (now - lastHoverSampleAtRef.current < 24) {
+      return;
+    }
+    lastHoverSampleAtRef.current = now;
     if (event.object.userData?.overlayKind === "edges") {
       return;
     }
@@ -981,7 +1021,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
         <div className="relative h-[560px] w-full overflow-hidden border border-cyan-500/20">
           <Canvas
             camera={{ position: [...CAMERA_DEFAULT_POSITION], fov: 30 }}
-            dpr={[1, 1.6]}
+            dpr={[1, 1.35]}
             gl={{ antialias: true, powerPreference: "high-performance" }}
           >
             <color attach="background" args={["#02070c"]} />
