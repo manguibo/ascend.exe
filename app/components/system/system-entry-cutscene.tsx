@@ -3,7 +3,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
-const SESSION_KEY = "ascend.entryCutscene.v1";
 const CUTSCENE_MS = 3400;
 
 const sequence = [
@@ -21,18 +20,8 @@ export function SystemEntryCutscene() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const forceReplay = new URLSearchParams(window.location.search).get("intro") === "1";
-    const alreadyShown = window.sessionStorage.getItem(SESSION_KEY) === "1";
-
-    if (!forceReplay && alreadyShown) {
-      return;
-    }
-
     const startedAt = Date.now();
     const activate = window.setTimeout(() => {
-      if (!forceReplay) {
-        window.sessionStorage.setItem(SESSION_KEY, "1");
-      }
       setActive(true);
     }, 0);
     const ticker = window.setInterval(() => {
