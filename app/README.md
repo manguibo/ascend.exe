@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ASCEND.EXE App
 
-## Getting Started
+Next.js application for ASCEND.EXE tactical performance tracking.
 
-First, run the development server:
+## Stack
+
+- Next.js (App Router)
+- TypeScript
+- Tailwind CSS
+- Framer Motion
+- Three.js + React Three Fiber + Drei
+- Vitest
+
+## Run Locally
+
+From this `app/` directory:
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Scripts
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm run start
+npm run lint
+npm run test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Core Routes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `/`: Home
+- `/dashboard`: Performance overview
+- `/log`: Session logging flow
+- `/directives`: Directive view
+- `/settings`: User settings
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Current Key Features
 
-## Learn More
+- Tactical startup cutscene overlay on app entry with skip control
+- XP and decay system with transparent multipliers and rank thresholds
+- Discipline index state modeling and recovery-through-action behavior
+- 3D body recovery interface with per-muscle selection
+- Clickable recovery guidance entries that focus the selected muscle
+- Muscle details panel with activity label context for stress rationale
 
-To learn more about Next.js, take a look at the following resources:
+## Architecture Notes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- UI components: `components/system/`
+- App routes and page composition: `app/`
+- Deterministic domain logic:
+  - XP: `lib/xp/`
+  - Ranks: `lib/ranks/`
+  - Directives: `lib/directives/`
+  - System simulation/state: `lib/system/`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Quality Checks
 
-## Deploy on Vercel
+Run before pushing:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run lint
+npm run test
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Product Guardrails
+
+Changes should follow repository directives in `../AGENTS.md`:
+
+- Keep single-activity product focus
+- Maintain deterministic, testable calculations
+- Avoid feature creep and unnecessary complexity
+- Preserve tactical, concise UI tone
