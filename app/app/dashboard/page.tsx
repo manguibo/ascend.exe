@@ -4,13 +4,10 @@ import { BodyRecoveryDiagram } from "@/components/system/body-recovery-diagram";
 import { DirectiveStack } from "@/components/system/directive-stack";
 import { CollapsiblePanel } from "@/components/system/collapsible-panel";
 import { DisciplineTimeline } from "@/components/system/discipline-timeline";
-import { MicroMetricGrid } from "@/components/system/micro-metric-grid";
 import { PageHeader } from "@/components/system/page-header";
 import { ProgressStatusBadge } from "@/components/system/progress-status-badge";
 import { SystemTelemetryPanel } from "@/components/system/system-telemetry-panel";
 import { TacticalReveal } from "@/components/system/tactical-reveal";
-import { XpFactorBars } from "@/components/system/xp-factor-bars";
-import { XpRetentionBars } from "@/components/system/xp-retention-bars";
 import { buildBodyRecoveryView, buildBodyRegionInsights } from "@/lib/system/body-recovery";
 import { usePerformanceView } from "@/lib/system/use-performance-view";
 import { useSessionHistory } from "@/lib/system/use-session-history";
@@ -24,10 +21,28 @@ const disciplineToneClass: Record<DisciplineState, string> = {
   COMPROMISED: "border-[#7a2f35] bg-[#1a080a] text-[#ff8d97]",
 };
 
+function getProgressBand(progressPct: number): string {
+  if (progressPct >= 75) return "LATE BAND";
+  if (progressPct >= 40) return "MID BAND";
+  return "EARLY BAND";
+}
+
+function getPressureBand(valuePct: number): string {
+  if (valuePct >= 70) return "HIGH";
+  if (valuePct >= 35) return "MODERATE";
+  return "LOW";
+}
+
+function getSessionOutcomeLabel(sessionXp: number): string {
+  if (sessionXp >= 180) return "HIGH OUTPUT SESSION";
+  if (sessionXp >= 110) return "SOLID OUTPUT SESSION";
+  return "LOW OUTPUT SESSION";
+}
+
 export default function DashboardPage() {
   const { snapshot, input } = useSystemSnapshot();
   const { entries: sessionHistory } = useSessionHistory();
-  const { rankProgress, currentRank, directiveTier, demotion, progressEvent, disciplineRiskPct, decayPressurePct, retentionPct } =
+  const { rankProgress, currentRank, directiveTier, demotion, progressEvent, disciplineRiskPct, decayPressurePct } =
     usePerformanceView(snapshot);
   const bodyRecoveryView = buildBodyRecoveryView(input);
   const bodyInsights = buildBodyRegionInsights(bodyRecoveryView, sessionHistory);
@@ -44,23 +59,23 @@ export default function DashboardPage() {
         <TacticalReveal delay={0.04}>
           <section className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
           <article className="border border-cyan-500/50 bg-black p-5 font-mono">
-            <h2 className="text-xs tracking-[0.22em] text-cyan-500">XP Breakdown</h2>
+            <h2 className="text-xs tracking-[0.22em] text-cyan-500">Performance summary</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="border border-cyan-500/40 p-4">
-                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">Session XP</p>
-                <p className="mt-2 text-3xl text-cyan-200">{snapshot.xp.sessionXp}</p>
-                <p className="mt-2 text-xs text-cyan-300/80" title="Session XP = round(BaseRate x Intensity x Duration x Outcome x Consistency)">
-                  Based on effort, duration, outcome, and consistency.
+                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">Session output</p>
+                <p className="mt-2 text-lg text-cyan-200">{getSessionOutcomeLabel(snapshot.xp.sessionXp)}</p>
+                <p className="mt-2 text-xs text-cyan-300/80">
+                  Based on your recent session intensity, duration, and consistency.
                 </p>
               </div>
               <div className="border border-cyan-500/40 p-4">
-                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">Total XP</p>
-                <p className="mt-2 text-3xl text-cyan-200">{snapshot.xp.totalXp}</p>
-                <p className="mt-2 text-xs text-cyan-300/80">Minimum protected XP: {snapshot.xp.levelFloorXp}</p>
+                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">Current trajectory</p>
+                <p className="mt-2 text-lg text-cyan-200">{getProgressBand(rankProgress.bandProgressPct)}</p>
+                <p className="mt-2 text-xs text-cyan-300/80">System trajectory reflects your current rank-band momentum.</p>
               </div>
             </div>
-            <div className="mt-4 border border-cyan-500/35 p-4">
-              <XpFactorBars factors={snapshot.xp.factors} />
+            <div className="mt-4 border border-cyan-500/35 p-4 text-xs text-cyan-300/85">
+              Mathematical internals are abstracted in this view. Use status changes and directives as your operational signal.
             </div>
           </article>
 
@@ -68,13 +83,10 @@ export default function DashboardPage() {
             <CollapsiblePanel panelId="dashboard-rank-status" title="Rank summary">
               <div className="font-mono">
                 <p className="text-xl tracking-[0.06em] text-cyan-200">{currentRank.id}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">Rank floor: {currentRank.minXp} XP</p>
-                <p className="mt-2 text-xs text-cyan-300/85">
-                  {rankProgress.nextRank ? `Next rank: ${rankProgress.nextRank.id} at ${rankProgress.nextRank.minXp} XP` : "Highest rank reached"}
-                </p>
+                <p className="mt-2 text-xs text-cyan-300/85">Rank phase: {getProgressBand(rankProgress.bandProgressPct)}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">{rankProgress.nextRank ? `Next rank queued: ${rankProgress.nextRank.id}` : "Highest rank reached"}</p>
                 <p className="mt-2 text-xs text-cyan-300/85">Plan level: {directiveTier.tier}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">Workout frequency: {snapshot.xp.expectedCadence} | grace {snapshot.xp.graceDays} day(s)</p>
-                <p className="mt-2 text-xs text-cyan-300/85">XP to next: {rankProgress.xpToNextRank} | progress {rankProgress.bandProgressPct}%</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Workout frequency: {snapshot.xp.expectedCadence}</p>
                 <div className="mt-3">
                   <ProgressStatusBadge status={progressEvent} prefix="Status: " />
                 </div>
@@ -88,7 +100,7 @@ export default function DashboardPage() {
                 </p>
                 <p className="mt-3 text-xs text-cyan-300/80">Recovery improves when you keep logging activity, not by waiting.</p>
                 <p className="mt-3 text-xs text-cyan-500/90">
-                  Rank protection check: {demotion.shouldDemote ? "Triggered" : "Not triggered"} ({demotion.compromisedStreak}/{demotion.requiredCompromisedDays} compromised days)
+                  Rank protection check: {demotion.shouldDemote ? "Triggered" : "Not triggered"}.
                 </p>
               </div>
             </CollapsiblePanel>
@@ -108,29 +120,11 @@ export default function DashboardPage() {
               disciplineStates={snapshot.recentDisciplineStates}
             />
 
-            <CollapsiblePanel panelId="dashboard-xp-decay-control" title="XP decay details" defaultOpen={false}>
+            <CollapsiblePanel panelId="dashboard-xp-decay-control" title="Inactivity pressure" defaultOpen={false}>
               <div className="font-mono">
-                <MicroMetricGrid
-                  columns={2}
-                  items={[
-                    { label: "PRE-DECAY TOTAL", value: `${snapshot.xp.totalXpBeforeDecay} XP` },
-                    { label: "POST-DECAY TOTAL", value: `${snapshot.xp.totalXp} XP` },
-                    { label: "DECAY DELTA", value: `-${snapshot.xp.decayDeltaXp} XP`, tone: "red" },
-                    { label: "DECAY RATE", value: `${snapshot.xp.decayRatePct}%/DAY`, tone: "red" },
-                    { label: "WORKOUT FREQUENCY", value: snapshot.xp.expectedCadence, tone: "subtle" },
-                    { label: "GRACE DAYS", value: `${snapshot.xp.graceDays}`, tone: "subtle" },
-                    { label: "INACTIVE DAYS", value: `${snapshot.xp.inactiveDays}`, tone: "subtle" },
-                    { label: "DECAY FLOOR", value: `${snapshot.xp.decayFloorXp} XP` },
-                  ]}
-                />
-                <div className="mt-3">
-                  <XpRetentionBars
-                    preDecayTotalXp={snapshot.xp.totalXpBeforeDecay}
-                    postDecayTotalXp={snapshot.xp.totalXp}
-                    decayDeltaXp={snapshot.xp.decayDeltaXp}
-                    retentionPct={retentionPct}
-                  />
-                </div>
+                <p className="text-xs text-cyan-200">Inactivity pressure: {getPressureBand(decayPressurePct)}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Consistency risk: {getPressureBand(disciplineRiskPct)}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Expected cadence: {snapshot.xp.expectedCadence}</p>
                 <p className="mt-3 text-xs text-cyan-500/90">A rank drop only happens with low XP and 7 compromised days.</p>
               </div>
             </CollapsiblePanel>

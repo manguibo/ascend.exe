@@ -34,13 +34,12 @@ export default function DirectivesPage() {
           <aside className="grid gap-4 font-mono">
             <CollapsiblePanel panelId="directives-scale" title="Plan level">
               <p className="text-2xl text-cyan-200">{scaleTier.tier}</p>
-              <p className="mt-2 text-sm text-cyan-300/90">Total XP: {snapshot.xp.totalXp}</p>
-              <p className="mt-2 text-xs text-cyan-300/90">Frequency: {snapshot.xp.expectedCadence} | grace {snapshot.xp.graceDays} day(s)</p>
+              <p className="mt-2 text-sm text-cyan-300/90">Frequency: {snapshot.xp.expectedCadence}</p>
               <p className="mt-2 text-xs text-cyan-300/90">
-                XP to next: {rankProgress.xpToNextRank} | progress: {rankProgress.bandProgressPct}%
+                Rank-band progress: {rankProgress.bandProgressPct >= 75 ? "LATE" : rankProgress.bandProgressPct >= 40 ? "MID" : "EARLY"}
               </p>
               <p className="mt-2 text-xs text-cyan-500/90">
-                {scaleTier.nextThreshold === null ? "You are at the highest plan level." : `Next level at ${scaleTier.nextThreshold} XP.`}
+                {scaleTier.nextThreshold === null ? "You are at the highest plan level." : "Next level unlocks with continued consistency."}
               </p>
             </CollapsiblePanel>
 
@@ -65,17 +64,15 @@ export default function DirectivesPage() {
                 columns={2}
                 items={[
                   { label: "CURRENT RANK", value: currentRank.id },
-                  { label: "RANK FLOOR", value: `${currentRank.minXp} XP`, tone: "subtle" },
+                  { label: "RANK PROTECTION", value: "ACTIVE", tone: "subtle" },
                   {
                     label: "NEXT RANK",
-                    value: rankProgress.nextRank
-                      ? `${rankProgress.nextRank.id} @ ${rankProgress.nextRank.minXp} XP`
-                      : "MAXIMUM RANK ACHIEVED",
+                    value: rankProgress.nextRank ? rankProgress.nextRank.id : "MAXIMUM RANK ACHIEVED",
                     tone: "subtle",
                   },
                   {
                     label: "DEMOTION CHECK",
-                    value: `${demotion.shouldDemote ? "TRIGGERED" : "NOT TRIGGERED"} (${demotion.compromisedStreak}/${demotion.requiredCompromisedDays})`,
+                    value: demotion.shouldDemote ? "TRIGGERED" : "NOT TRIGGERED",
                     tone: demotion.shouldDemote ? "red" : "purple",
                   },
                 ]}

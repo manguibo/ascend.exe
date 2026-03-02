@@ -21,6 +21,18 @@ const disciplineToneClass: Record<DisciplineState, string> = {
   COMPROMISED: "border-[#7a2f35] bg-[#1a080a] text-[#ff8d97]",
 };
 
+function getPressureBand(valuePct: number): string {
+  if (valuePct >= 70) return "HIGH";
+  if (valuePct >= 35) return "MODERATE";
+  return "LOW";
+}
+
+function getProgressBand(progressPct: number): string {
+  if (progressPct >= 75) return "LATE BAND";
+  if (progressPct >= 40) return "MID BAND";
+  return "EARLY BAND";
+}
+
 export default function Home() {
   const { snapshot, input, setInput } = useSystemSnapshot();
   const { entries: sessionHistory } = useSessionHistory();
@@ -65,24 +77,24 @@ export default function Home() {
               <p className={`border px-2 py-1 text-sm tracking-[0.16em] ${disciplineToneClass[snapshot.discipline]}`}>{snapshot.discipline}</p>
             </StatusTile>
             <StatusTile
-              label="XP Decay"
-              value={`${snapshot.xp.decayRatePct}% / inactive day`}
-              detail={`${snapshot.xp.expectedCadence} | grace ${snapshot.xp.graceDays} day(s)`}
+              label="Inactivity pressure"
+              value={getPressureBand(decayPressurePct)}
+              detail={`Cadence: ${snapshot.xp.expectedCadence}`}
             />
             <StatusTile
               label="Rank"
               value={currentRank.id}
               detail={
                 <>
-                  <p>{rankProgress.nextRank ? `Next ${rankProgress.nextRank.id} at ${rankProgress.nextRank.minXp}` : "Highest rank reached"}</p>
-                  <p>XP to next {rankProgress.xpToNextRank} | progress {rankProgress.bandProgressPct}%</p>
+                  <p>{rankProgress.nextRank ? `Next ${rankProgress.nextRank.id}` : "Highest rank reached"}</p>
+                  <p>{getProgressBand(rankProgress.bandProgressPct)}</p>
                 </>
               }
             />
             <StatusTile
               label="Plan level"
               value={directiveTier.tier}
-              detail={directiveTier.nextThreshold ? `Next at ${directiveTier.nextThreshold} XP` : "Highest level active"}
+              detail={directiveTier.nextThreshold ? "Next level available after sustained progress" : "Highest level active"}
             />
             <StatusTile label="Status">
               <ProgressStatusBadge status={progressEvent} />
