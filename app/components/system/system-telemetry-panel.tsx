@@ -36,6 +36,11 @@ export function SystemTelemetryPanel({
 
   return (
     <TacticalVisualPanel title="HEALTH SUMMARY">
+      <div className="grid gap-2 border border-cyan-500/30 bg-black/70 px-3 py-2 text-[10px] tracking-[0.14em] text-cyan-300 sm:grid-cols-3">
+        <p>READINESS BAND: {getRiskBand(100 - readiness)}</p>
+        <p>CONSISTENCY RISK: {disciplineRiskBand}</p>
+        <p>DECAY RISK: {decayPressureBand}</p>
+      </div>
       {showMatrix ? (
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">

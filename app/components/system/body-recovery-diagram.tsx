@@ -136,6 +136,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function formatVisualRegionLabel(regionId: VisualRegionId): string {
+  return regionId.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function getStressTone(stressLevel: number): THREE.Color {
   const normalized = clamp(stressLevel, 0, 1);
   const color = new THREE.Color();
@@ -903,18 +907,27 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
           </Canvas>
           {recoveryRecommendations.length > 0 ? (
             <div className="pointer-events-none absolute left-4 top-4 z-20 w-[min(42vw,320px)]">
-              <div className="border border-[#ff922e]/75 bg-black/92 px-3 py-2 font-mono shadow-[0_0_18px_rgba(255,146,46,0.25)]">
+              <div className="pointer-events-auto border border-[#ff922e]/75 bg-black/92 px-3 py-2 font-mono shadow-[0_0_18px_rgba(255,146,46,0.25)]">
                 <p className="text-[10px] tracking-[0.16em] text-[#ffb45f]">RECOVERY DIRECTIVE</p>
-                <div className="mt-2 grid gap-1">
+                <p className="mt-1 text-[10px] tracking-[0.14em] text-[#ffd4a3]/85">
+                  {recoveryRecommendations.length} MUSCLE GROUP{recoveryRecommendations.length === 1 ? "" : "S"} REQUIRE REST
+                </p>
+                <div className="mt-2 grid max-h-56 gap-1 overflow-y-auto pr-1">
                   {recoveryRecommendations.map((entry) => (
                     <p key={`recovery-${entry.visualId}`} className="border border-[#ff922e]/35 px-2 py-1 text-[11px] text-[#ffd4a3]">
-                      {entry.visualId} | ETA {entry.etaHours}H ({entry.etaDays}D) | STRESS {entry.stressPct}%
+                      {formatVisualRegionLabel(entry.visualId)} | ETA {entry.etaHours}H ({entry.etaDays}D) | STRESS {entry.stressPct}%
                     </p>
                   ))}
                 </div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="pointer-events-none absolute left-4 top-4 z-20">
+              <p className="border border-cyan-500/45 bg-black/80 px-3 py-2 text-[10px] tracking-[0.14em] text-cyan-300">
+                RECOVERY DIRECTIVE: NO IMMEDIATE MUSCLE REST ALERTS.
+              </p>
+            </div>
+          )}
         </div>
         <p className="mt-2 text-[10px] tracking-[0.14em] text-cyan-500/85">DRAG TO ROTATE 360 | CLICK MUSCLE GROUP TO SELECT</p>
         {modelAvailable === false ? (
