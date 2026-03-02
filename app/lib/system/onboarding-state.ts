@@ -78,3 +78,8 @@ export function markOnboardingComplete(value = true): void {
     window.localStorage.removeItem(ONBOARDING_COMPLETE_STORAGE_KEY);
   }
 }
+
+export function clearOnboardingProfile(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(ONBOARDING_PROFILE_STORAGE_KEY);
+}

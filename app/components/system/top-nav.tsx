@@ -14,6 +14,7 @@ const navItems: readonly NavItem[] = [
   { href: "/dashboard", label: "Overview" },
   { href: "/log", label: "Log Workout" },
   { href: "/directives", label: "Plans" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export function TopNav() {
