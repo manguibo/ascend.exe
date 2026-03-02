@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBodyRecoveryView, getAverageReadinessPct, getLowestReadinessRegion } from "./body-recovery";
+import { buildBodyRecoveryView, buildBodyRegionInsights, getAverageReadinessPct, getLowestReadinessRegion } from "./body-recovery";
 import { defaultSessionLogInput } from "./session-state";
 
 describe("buildBodyRecoveryView", () => {
@@ -91,5 +91,49 @@ describe("buildBodyRecoveryView", () => {
     expect(average).toBeGreaterThanOrEqual(0);
     expect(average).toBeLessThanOrEqual(100);
     expect(lowest?.readinessPct).toBeLessThanOrEqual(average);
+  });
+
+  it("keeps non-severe recovery ETAs in a realistic range", () => {
+    const view = buildBodyRecoveryView({
+      ...defaultSessionLogInput,
+      activityId: "ROCK_CLIMBING",
+      intensityMultiplier: 1.18,
+      durationMultiplier: 1.12,
+      consistencyMultiplier: 1.06,
+      inactiveDays: 1,
+      fitnessBaselinePct: 72,
+      recentDisciplineStates: ["OPTIMAL", "STABLE", "STABLE", "OPTIMAL", "STABLE", "OPTIMAL", "STABLE"],
+    });
+
+    const history = [
+      {
+        id: "h-1",
+        timestampIso: "2026-01-01T00:00:00.000Z",
+        totalXp: 1000,
+        sessionXp: 100,
+        discipline: "STABLE",
+        activityCodename: "CLIMB",
+        profile: "PULL",
+        regionReadiness: Object.fromEntries(view.regions.map((region) => [region.id, Math.max(0, region.readinessPct - 2)])),
+        developmentAvgPct: 60,
+      },
+      {
+        id: "h-2",
+        timestampIso: "2026-01-02T00:00:00.000Z",
+        totalXp: 1120,
+        sessionXp: 120,
+        discipline: "OPTIMAL",
+        activityCodename: "CLIMB",
+        profile: "PULL",
+        regionReadiness: Object.fromEntries(view.regions.map((region) => [region.id, Math.max(0, region.readinessPct - 1)])),
+        developmentAvgPct: 62,
+      },
+    ];
+
+    const insights = buildBodyRegionInsights(view, history);
+    Object.values(insights).forEach((insight) => {
+      expect(insight.etaDays).not.toBeNull();
+      expect(insight.etaDays ?? 0).toBeLessThanOrEqual(4);
+    });
   });
 });

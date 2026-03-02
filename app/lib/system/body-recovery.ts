@@ -132,6 +132,31 @@ function getRecoveryCapacity(input: SessionLogInput): number {
   );
 }
 
+function estimateEtaDays(region: BodyRegionSignal, deltaPct: number): number {
+  if (region.readinessPct >= 67) {
+    return 0;
+  }
+
+  const readiness = clamp(region.readinessPct, 0, 100);
+  const recoveryPct = clamp(region.recoveryPct, 0, 100);
+  const loadPct = clamp(region.loadPct, 0, 100);
+  const severeFatigue = readiness <= 20 && recoveryPct <= 25 && loadPct >= 85;
+
+  let etaBase = 2;
+  if (readiness >= 55) etaBase = 1;
+  else if (readiness >= 45) etaBase = 2;
+  else if (readiness >= 35) etaBase = 3;
+  else if (readiness >= 25) etaBase = 4;
+  else etaBase = severeFatigue ? 6 : 4;
+
+  const loadAdjustment = loadPct >= 85 ? 1 : loadPct >= 75 ? 0.5 : 0;
+  const recoveryAdjustment = recoveryPct <= 25 ? 1 : recoveryPct <= 40 ? 0.5 : 0;
+  const trendAdjustment = deltaPct >= 5 ? -1 : deltaPct <= -5 ? 1 : 0;
+
+  const eta = Math.round(etaBase + loadAdjustment + recoveryAdjustment + trendAdjustment);
+  return clamp(eta, 1, severeFatigue ? 7 : 4);
+}
+
 export function buildBodyRecoveryView(input: SessionLogInput): BodyRecoveryView {
   const profile = resolveProfile(input);
   const loadProfile = resolveRegionLoadProfile(input, profile);
@@ -204,9 +229,7 @@ export function buildBodyRegionInsights(view: BodyRecoveryView, historyEntries: 
     view.regions.map((region) => {
       const previousReadiness = previous?.regionReadiness?.[region.id];
       const deltaPct = typeof previousReadiness === "number" ? Math.round(region.readinessPct - previousReadiness) : 0;
-      const gapToReady = Math.max(0, 67 - region.readinessPct);
-      const velocity = Math.max(1, Math.abs(deltaPct) || 2);
-      const etaDays = region.readinessPct >= 67 ? 0 : Math.ceil(gapToReady / velocity);
+      const etaDays = estimateEtaDays(region, deltaPct);
       return [region.id, { deltaPct, etaDays: Number.isFinite(etaDays) ? etaDays : null }];
     }),
   ) as Record<BodyRegionId, BodyRegionInsight>;
