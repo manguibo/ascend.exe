@@ -1,6 +1,5 @@
 "use client";
 
-import { BodyRecoveryDiagram } from "@/components/system/body-recovery-diagram";
 import { DirectiveStack } from "@/components/system/directive-stack";
 import { CollapsiblePanel } from "@/components/system/collapsible-panel";
 import { DisciplineTimeline } from "@/components/system/discipline-timeline";
@@ -8,9 +7,7 @@ import { PageHeader } from "@/components/system/page-header";
 import { ProgressStatusBadge } from "@/components/system/progress-status-badge";
 import { SystemTelemetryPanel } from "@/components/system/system-telemetry-panel";
 import { TacticalReveal } from "@/components/system/tactical-reveal";
-import { buildBodyRecoveryView, buildBodyRegionInsights } from "@/lib/system/body-recovery";
 import { usePerformanceView } from "@/lib/system/use-performance-view";
-import { useSessionHistory } from "@/lib/system/use-session-history";
 import type { DisciplineState } from "@/lib/system/types";
 import { useSystemSnapshot } from "@/lib/system/use-system-snapshot";
 
@@ -40,12 +37,9 @@ function getSessionOutcomeLabel(sessionXp: number): string {
 }
 
 export default function DashboardPage() {
-  const { snapshot, input } = useSystemSnapshot();
-  const { entries: sessionHistory } = useSessionHistory();
+  const { snapshot } = useSystemSnapshot();
   const { rankProgress, currentRank, directiveTier, demotion, progressEvent, disciplineRiskPct, decayPressurePct } =
     usePerformanceView(snapshot);
-  const bodyRecoveryView = buildBodyRecoveryView(input);
-  const bodyInsights = buildBodyRegionInsights(bodyRecoveryView, sessionHistory);
 
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
@@ -106,10 +100,6 @@ export default function DashboardPage() {
             </CollapsiblePanel>
 
             <DisciplineTimeline states={snapshot.recentDisciplineStates} />
-
-            <CollapsiblePanel panelId="dashboard-body-recovery-map" title="Body recovery and development" defaultOpen={false}>
-              <BodyRecoveryDiagram view={bodyRecoveryView} insights={bodyInsights} activityCodename={snapshot.activity.codename} input={input} />
-            </CollapsiblePanel>
 
             <SystemTelemetryPanel
               primaryLabel="Rank progress"

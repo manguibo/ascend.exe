@@ -3,7 +3,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { ActivityPicker } from "@/components/system/activity-picker";
-import { BodyRecoveryDiagram } from "@/components/system/body-recovery-diagram";
 import { PageHeader } from "@/components/system/page-header";
 import { CollapsiblePanel } from "@/components/system/collapsible-panel";
 import { MicroMetricGrid } from "@/components/system/micro-metric-grid";
@@ -12,11 +11,9 @@ import { SystemTelemetryPanel } from "@/components/system/system-telemetry-panel
 import { TacticalReveal } from "@/components/system/tactical-reveal";
 import { displayWeightToKg, getHeightUnitLabel, getWeightUnitLabel, heightCmToDisplay, heightDisplayToCm, kgToDisplayWeight } from "@/lib/system/units";
 import { activityCatalog, getActivityDefinition } from "@/lib/system/activity-catalog";
-import { buildBodyRecoveryView, buildBodyRegionInsights, getRecentStressLevels, type BodyRegionId } from "@/lib/system/body-recovery";
 import { applySessionProfile, resetSessionInputToStandard, sessionProfiles } from "@/lib/system/profiles";
 import { appendSessionHistoryEntry, clearSessionHistory } from "@/lib/system/session-history";
 import { usePerformanceView } from "@/lib/system/use-performance-view";
-import { useSessionHistory } from "@/lib/system/use-session-history";
 import {
   bodyTrainingProfileOptions,
   bodySignalFields,
@@ -63,37 +60,12 @@ const injuryRegionLabelById: Record<InjuryRegionId, string> = {
   HAMSTRINGS: "Hamstrings",
 };
 
-function buildLiveStressLevels(view: ReturnType<typeof buildBodyRecoveryView>): Partial<Record<BodyRegionId, number>> {
-  return Object.fromEntries(
-    view.regions.map((region) => {
-      const load = clamp(region.loadPct / 100, 0, 1);
-      const readinessPenalty = clamp((100 - region.readinessPct) / 100, 0, 1);
-      const score = clamp(load * 0.6 + readinessPenalty * 0.4, 0, 1);
-      return [region.id, score];
-    }),
-  );
-}
-
 export default function LogPage() {
   const { input, setInput, snapshot } = useSystemSnapshot();
-  const { entries: sessionHistory } = useSessionHistory();
   const [activityPickerOpen, setActivityPickerOpen] = useState(false);
   const [activityQuestionnaire, setActivityQuestionnaire] = useState<ActivityQuestionnaireState | null>(null);
   const { rankProgress, currentRank, directiveTier, disciplineRiskPct, decayPressurePct } = usePerformanceView(snapshot);
   const selectedActivity = getActivityDefinition(input.activityId);
-  const bodyRecoveryView = buildBodyRecoveryView(input);
-  const bodyInsights = buildBodyRegionInsights(bodyRecoveryView, sessionHistory);
-  const historyStressLevels = getRecentStressLevels(sessionHistory, 3);
-  const liveStressLevels = buildLiveStressLevels(bodyRecoveryView);
-  const mergedStressLevels = {
-    ...historyStressLevels,
-    ...Object.fromEntries(
-      Object.entries(liveStressLevels).map(([regionId, score]) => [
-        regionId,
-        clamp(Math.max(score ?? 0, historyStressLevels[regionId as keyof typeof historyStressLevels] ?? 0), 0, 1),
-      ]),
-    ),
-  };
 
   const handleChange = (field: keyof SessionLogInput, rawValue: string) => {
     const parsed = Number(rawValue);
@@ -398,16 +370,6 @@ export default function LogPage() {
               decayPressurePct={decayPressurePct}
               disciplineStates={snapshot.recentDisciplineStates}
             />
-
-            <CollapsiblePanel panelId="log-body-stress-preview" title="Live body stress map">
-              <BodyRecoveryDiagram
-                view={bodyRecoveryView}
-                insights={bodyInsights}
-                stressedRegionLevels={mergedStressLevels}
-                activityCodename={snapshot.activity.codename}
-                input={input}
-              />
-            </CollapsiblePanel>
 
             <CollapsiblePanel panelId="log-system-note" title="Notes" defaultOpen={false}>
               <p className="text-xs text-cyan-300/85">Primary activity: {selectedActivity.label}</p>
