@@ -527,6 +527,15 @@ function AvatarModel({
     return texture;
   }, [idMaskTexture]);
   const cloned = useMemo(() => scene.clone(true), [scene]);
+  const meshNodes = useMemo(() => {
+    const nodes: THREE.Mesh[] = [];
+    cloned.traverse((node) => {
+      if ((node as THREE.Mesh).isMesh) {
+        nodes.push(node as THREE.Mesh);
+      }
+    });
+    return nodes;
+  }, [cloned]);
   const modelFit = useMemo(() => {
     const bounds = new THREE.Box3().setFromObject(cloned);
     const size = bounds.getSize(new THREE.Vector3());
@@ -539,13 +548,6 @@ function AvatarModel({
   }, [cloned]);
 
   useEffect(() => {
-    const meshNodes: THREE.Mesh[] = [];
-
-    cloned.traverse((node) => {
-      if (!(node as THREE.Mesh).isMesh) return;
-      meshNodes.push(node as THREE.Mesh);
-    });
-
     meshNodes.forEach((mesh) => {
       const regionId: VisualRegionId = "ABS";
       mesh.userData.regionId = regionId;
@@ -598,7 +600,7 @@ function AvatarModel({
         }
       }
     });
-  }, [cloned, samplingTexture]);
+  }, [meshNodes, samplingTexture]);
 
   useFrame((state) => {
     const root = rootRef.current;
@@ -612,10 +614,15 @@ function AvatarModel({
       0.9 + morph.torsoScale * 0.08 + morph.legScale * 0.2,
       0.86 + morph.hipScale * 0.08,
     );
+  });
 
-    cloned.traverse((node) => {
-      if (!(node as THREE.Mesh).isMesh) return;
-      const mesh = node as THREE.Mesh;
+  const stressUniformArray = useMemo(
+    () => buildVisualStressArray(stressedRegionLevels),
+    [stressedRegionLevels],
+  );
+
+  useEffect(() => {
+    meshNodes.forEach((mesh) => {
       const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
       if (!(material instanceof THREE.MeshStandardMaterial)) return;
       const regionId = mesh.userData.regionId as VisualRegionId | undefined;
@@ -664,14 +671,14 @@ function AvatarModel({
           const heatMaterial = heatMesh.material;
           const heatShader = Array.isArray(heatMaterial) ? heatMaterial[0] : heatMaterial;
           if (heatShader instanceof THREE.ShaderMaterial) {
-            heatShader.uniforms.uStressLevels.value = buildVisualStressArray(stressedRegionLevels);
+            heatShader.uniforms.uStressLevels.value = stressUniformArray;
             heatShader.uniforms.uSelectedIndex.value = selectedRegionId ? VISUAL_REGION_TO_INDEX[selectedRegionId] : -1;
             heatShader.uniforms.uHoveredIndex.value = hoveredRegionId ? VISUAL_REGION_TO_INDEX[hoveredRegionId] : -1;
           }
         }
       });
     });
-  });
+  }, [hoveredRegionId, meshNodes, regionById, selectedRegionId, stressUniformArray, stressedRegionLevels]);
 
   const onPointerMove = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
@@ -972,7 +979,11 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
 
       <div className="mt-4 border border-cyan-500/30 p-2">
         <div className="relative h-[560px] w-full overflow-hidden border border-cyan-500/20">
-          <Canvas camera={{ position: [...CAMERA_DEFAULT_POSITION], fov: 30 }} gl={{ antialias: true }}>
+          <Canvas
+            camera={{ position: [...CAMERA_DEFAULT_POSITION], fov: 30 }}
+            dpr={[1, 1.6]}
+            gl={{ antialias: true, powerPreference: "high-performance" }}
+          >
             <color attach="background" args={["#02070c"]} />
             <fog attach="fog" args={["#02070c", 4.8, 10]} />
             <ambientLight intensity={0.5} />
