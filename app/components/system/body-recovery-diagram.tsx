@@ -7,6 +7,7 @@ import { OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { BodyRecoveryView, BodyRegionInsight, BodyRegionSignal } from "@/lib/system/body-recovery";
+import { getActivityDefinition } from "@/lib/system/activity-catalog";
 import { deriveAvatarMorphParams } from "@/lib/system/avatar-profile";
 import type { SessionLogInput } from "@/lib/system/session-state";
 import { formatHeight, formatWeight, formatWeightDelta } from "@/lib/system/units";
@@ -293,8 +294,8 @@ function getVisualStressLevel(stressedRegionLevels: Partial<Record<BaseRegionId,
   return clamp(stressedRegionLevels[VISUAL_TO_BASE_REGION[regionId]] ?? 0, 0, 1);
 }
 
-function buildRecoveryRoute(region: VisualRegionSignal, activityCodename?: string): RecoveryRoute {
-  const context = activityCodename ? `for ${activityCodename}` : "for current activity";
+function buildRecoveryRoute(region: VisualRegionSignal, activityLabel?: string): RecoveryRoute {
+  const context = activityLabel ? `from ${activityLabel}` : "from current activity";
   if (region.status === "RECOVER" || (region.loadPct >= 75 && region.recoveryPct <= 60)) {
     return {
       route: "Recovery Focus",
@@ -969,9 +970,15 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
   }, [stressedRegionLevels, view.regions]);
 
   const morph = useMemo(() => deriveAvatarMorphParams(input, view, null), [input, view]);
+  const activeActivityLabel = useMemo(() => {
+    if (input.activityId) {
+      return getActivityDefinition(input.activityId).label;
+    }
+    return activityCodename;
+  }, [activityCodename, input.activityId]);
   const selectedRegion = selectedRegionId ? regionById.get(selectedRegionId) ?? null : null;
   const selectedInsight = selectedRegionId ? insights[VISUAL_TO_BASE_REGION[selectedRegionId]] : undefined;
-  const selectedRoute = selectedRegion ? buildRecoveryRoute(selectedRegion, activityCodename) : null;
+  const selectedRoute = selectedRegion ? buildRecoveryRoute(selectedRegion, activeActivityLabel) : null;
   const widthSignal = Math.round((morph.shoulderScale * 0.34 + morph.waistScale * 0.33 + morph.hipScale * 0.33) * 100);
   const heightSignal = Math.round(clamp(84 + (input.heightCm - 160) * 0.52 + (morph.legScale - 1) * 18, 80, 152));
   const recoveryRecommendations = useMemo(() => {
@@ -1159,7 +1166,7 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
                 </button>
               </div>
               <p className="mt-2 text-xs tracking-[0.14em] text-cyan-200">
-                Target {selectedRegion.label} | Activity {activityCodename ?? "Current activity"}
+                Target {selectedRegion.label} | Activity {activeActivityLabel ?? "Current activity"}
               </p>
               <p className="mt-1 text-[11px] text-cyan-300/90">
                 Stress {selectedRegion.loadPct}% | Readiness {selectedRegion.readinessPct}% | Recovery {selectedRegion.recoveryPct}%
