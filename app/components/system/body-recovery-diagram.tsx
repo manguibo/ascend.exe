@@ -136,19 +136,19 @@ const CAMERA_DEFAULT_TARGET = [0, 0.94, 0] as const;
 const CAMERA_DAMPING = 5.2;
 
 const CAMERA_FOCUS_BY_REGION: Record<VisualRegionId, { position: readonly [number, number, number]; target: readonly [number, number, number] }> = {
-  FINGERS: { position: [0, 1.08, 2.85], target: [0, 0.66, 0.46] },
-  FOREARMS: { position: [0, 1.2, 2.95], target: [0, 0.92, 0.3] },
+  FINGERS: { position: [0, 1.12, 2.95], target: [0, 0.72, 0.42] },
+  FOREARMS: { position: [0, 1.22, 3.02], target: [0, 0.96, 0.28] },
   BICEPS: { position: [0, 1.36, 2.9], target: [0, 1.24, 0.2] },
   TRICEPS: { position: [0, 1.35, 2.96], target: [0, 1.22, -0.18] },
   SHOULDERS: { position: [0, 1.62, 2.86], target: [0, 1.48, 0] },
   LATS: { position: [0, 1.28, 3.02], target: [0, 1.2, -0.2] },
   TRAPS: { position: [0, 1.76, 2.92], target: [0, 1.74, -0.08] },
   CHEST: { position: [0, 1.34, 2.9], target: [0, 1.2, 0.2] },
-  ABS: { position: [0, 1.02, 2.86], target: [0, 0.8, 0.18] },
-  GLUTES: { position: [0, 0.74, 3.06], target: [0, 0.36, -0.08] },
-  QUADS: { position: [0, 0.58, 3.12], target: [0, -0.46, 0.12] },
-  HAMSTRINGS: { position: [0, 0.48, 3.24], target: [0, -0.46, -0.12] },
-  CALVES: { position: [0, -0.38, 3.1], target: [0, -1.44, 0] },
+  ABS: { position: [0, 1.16, 3.02], target: [0, 0.8, 0.18] },
+  GLUTES: { position: [0, 1.02, 3.24], target: [0, 0.34, -0.08] },
+  QUADS: { position: [0, 0.96, 3.38], target: [0, -0.3, 0.12] },
+  HAMSTRINGS: { position: [0, 0.92, 3.44], target: [0, -0.3, -0.12] },
+  CALVES: { position: [0, 0.74, 3.48], target: [0, -1.04, 0] },
 };
 
 const VISUAL_REGION_TO_INDEX: Record<VisualRegionId, number> = Object.fromEntries(
@@ -311,16 +311,35 @@ function CameraFocusController({ selectedRegionId, controlsRef }: CameraFocusCon
   const { camera } = useThree();
   const targetPositionRef = useRef(new THREE.Vector3(...CAMERA_DEFAULT_POSITION));
   const targetLookAtRef = useRef(new THREE.Vector3(...CAMERA_DEFAULT_TARGET));
+  const focusActiveRef = useRef(false);
 
   useEffect(() => {
-    const focus = selectedRegionId ? CAMERA_FOCUS_BY_REGION[selectedRegionId] : null;
-    const nextPosition = focus?.position ?? CAMERA_DEFAULT_POSITION;
-    const nextTarget = focus?.target ?? CAMERA_DEFAULT_TARGET;
+    if (!selectedRegionId) {
+      focusActiveRef.current = false;
+      targetPositionRef.current.set(...CAMERA_DEFAULT_POSITION);
+      targetLookAtRef.current.set(...CAMERA_DEFAULT_TARGET);
+      camera.position.set(...CAMERA_DEFAULT_POSITION);
+      const controls = controlsRef.current;
+      if (controls) {
+        controls.target.set(...CAMERA_DEFAULT_TARGET);
+        controls.update();
+      } else {
+        camera.lookAt(targetLookAtRef.current);
+      }
+      return;
+    }
+    focusActiveRef.current = true;
+    const focus = CAMERA_FOCUS_BY_REGION[selectedRegionId];
+    const nextPosition = focus.position;
+    const nextTarget = focus.target;
     targetPositionRef.current.set(...nextPosition);
     targetLookAtRef.current.set(...nextTarget);
-  }, [selectedRegionId]);
+  }, [camera, controlsRef, selectedRegionId]);
 
   useFrame((_, delta) => {
+    if (!focusActiveRef.current) {
+      return;
+    }
     const smoothing = 1 - Math.exp(-delta * CAMERA_DAMPING);
     camera.position.lerp(targetPositionRef.current, smoothing);
     const controls = controlsRef.current;
