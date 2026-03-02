@@ -1080,9 +1080,18 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
                 </p>
                 <div className="mt-2 grid max-h-56 gap-1 overflow-y-auto pr-1">
                   {recoveryRecommendations.map((entry) => (
-                    <p key={`recovery-${entry.visualId}`} className="border border-[#ff922e]/35 px-2 py-1 text-[11px] text-[#ffd4a3]">
+                    <button
+                      key={`recovery-${entry.visualId}`}
+                      type="button"
+                      onClick={() => setSelectedRegionId(entry.visualId)}
+                      className={`w-full border px-2 py-1 text-left text-[11px] transition-colors ${
+                        selectedRegionId === entry.visualId
+                          ? "border-cyan-300 bg-cyan-500/15 text-cyan-100"
+                          : "border-[#ff922e]/35 text-[#ffd4a3] hover:bg-[#ff922e]/12"
+                      }`}
+                    >
                       {formatVisualRegionLabel(entry.visualId)} | recover ~{entry.etaDays} day(s) | stress {entry.stressPct}%
-                    </p>
+                    </button>
                   ))}
                 </div>
               </div>
