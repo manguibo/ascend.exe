@@ -137,6 +137,8 @@ const CAMERA_DAMPING = 5.2;
 
 const CAMERA_MIN_FOCUS_Y = 0.94;
 const CAMERA_MAX_FOCUS_Y = 2.28;
+const CAMERA_MIN_FOCUS_TARGET_Y = 0.42;
+const CAMERA_MAX_FOCUS_TARGET_Y = 1.82;
 
 const CAMERA_FOCUS_BY_REGION: Record<VisualRegionId, { target: readonly [number, number, number]; distance: number }> = {
   FINGERS: { target: [0, 0.72, 0.42], distance: 2.7 },
@@ -147,11 +149,11 @@ const CAMERA_FOCUS_BY_REGION: Record<VisualRegionId, { target: readonly [number,
   LATS: { target: [0, 1.2, -0.2], distance: 2.84 },
   TRAPS: { target: [0, 1.74, -0.08], distance: 2.76 },
   CHEST: { target: [0, 1.2, 0.2], distance: 2.76 },
-  ABS: { target: [0, 0.8, 0.18], distance: 2.9 },
-  GLUTES: { target: [0, 0.34, -0.08], distance: 3.06 },
-  QUADS: { target: [0, -0.12, 0.12], distance: 3.14 },
-  HAMSTRINGS: { target: [0, -0.12, -0.12], distance: 3.2 },
-  CALVES: { target: [0, -0.86, 0], distance: 3.26 },
+  ABS: { target: [0, 0.94, 0.18], distance: 3.25 },
+  GLUTES: { target: [0, 0.82, -0.08], distance: 3.36 },
+  QUADS: { target: [0, 0.74, 0.12], distance: 3.54 },
+  HAMSTRINGS: { target: [0, 0.72, -0.12], distance: 3.62 },
+  CALVES: { target: [0, 0.6, 0], distance: 3.84 },
 };
 
 const VISUAL_REGION_TO_INDEX: Record<VisualRegionId, number> = Object.fromEntries(
@@ -342,11 +344,14 @@ function CameraFocusController({ selectedRegionId, controlsRef }: CameraFocusCon
     } else {
       focusDirectionRef.current.normalize();
     }
+    focusDirectionRef.current.y = clamp(focusDirectionRef.current.y, -0.14, 0.32);
+    focusDirectionRef.current.normalize();
     const nextTarget = focus.target;
     const nextPosition = new THREE.Vector3(...nextTarget).addScaledVector(focusDirectionRef.current, focus.distance);
+    const clampedTargetY = clamp(nextTarget[1], CAMERA_MIN_FOCUS_TARGET_Y, CAMERA_MAX_FOCUS_TARGET_Y);
+    targetLookAtRef.current.set(nextTarget[0], clampedTargetY, nextTarget[2]);
     nextPosition.y = clamp(nextPosition.y, CAMERA_MIN_FOCUS_Y, CAMERA_MAX_FOCUS_Y);
     targetPositionRef.current.copy(nextPosition);
-    targetLookAtRef.current.set(...nextTarget);
   }, [camera, controlsRef, selectedRegionId]);
 
   useFrame((_, delta) => {
