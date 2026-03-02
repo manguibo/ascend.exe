@@ -150,20 +150,26 @@ const CAMERA_MAX_FOCUS_Y = 2.28;
 const CAMERA_MIN_FOCUS_TARGET_Y = 0.42;
 const CAMERA_MAX_FOCUS_TARGET_Y = 1.82;
 
-const CAMERA_FOCUS_BY_REGION: Record<VisualRegionId, { target: readonly [number, number, number]; distance: number }> = {
-  FINGERS: { target: [0, 0.72, 0.42], distance: 2.7 },
-  FOREARMS: { target: [0, 0.96, 0.28], distance: 2.8 },
-  BICEPS: { target: [0, 1.24, 0.2], distance: 2.75 },
-  TRICEPS: { target: [0, 1.22, -0.18], distance: 2.82 },
-  SHOULDERS: { target: [0, 1.48, 0], distance: 2.7 },
-  LATS: { target: [0, 1.2, -0.2], distance: 2.84 },
-  TRAPS: { target: [0, 1.74, -0.08], distance: 2.76 },
-  CHEST: { target: [0, 1.2, 0.2], distance: 2.76 },
-  ABS: { target: [0, 0.94, 0.18], distance: 3.25 },
-  GLUTES: { target: [0, 0.82, -0.08], distance: 3.36 },
-  QUADS: { target: [0, 0.74, 0.12], distance: 3.54 },
-  HAMSTRINGS: { target: [0, 0.72, -0.12], distance: 3.62 },
-  CALVES: { target: [0, 0.6, 0], distance: 3.84 },
+type CameraFocusTarget = {
+  target: readonly [number, number, number];
+  distance: number;
+  cameraDirection?: readonly [number, number, number];
+};
+
+const CAMERA_FOCUS_BY_REGION: Record<VisualRegionId, CameraFocusTarget> = {
+  FINGERS: { target: [0, 0.72, 0.42], distance: 2.7, cameraDirection: [0, 0.06, 1] },
+  FOREARMS: { target: [0, 0.96, 0.28], distance: 2.8, cameraDirection: [0, 0.08, 1] },
+  BICEPS: { target: [0, 1.24, 0.2], distance: 2.75, cameraDirection: [0, 0.08, 1] },
+  TRICEPS: { target: [0, 1.22, -0.18], distance: 2.82, cameraDirection: [0, 0.08, -1] },
+  SHOULDERS: { target: [0, 1.48, 0], distance: 2.7, cameraDirection: [0, 0.1, 1] },
+  LATS: { target: [0, 1.2, -0.2], distance: 2.84, cameraDirection: [0, 0.08, -1] },
+  TRAPS: { target: [0, 1.74, -0.08], distance: 2.76, cameraDirection: [0, 0.12, -1] },
+  CHEST: { target: [0, 1.2, 0.2], distance: 2.76, cameraDirection: [0, 0.08, 1] },
+  ABS: { target: [0, 0.94, 0.18], distance: 3.25, cameraDirection: [0, 0.06, 1] },
+  GLUTES: { target: [0, 0.82, -0.08], distance: 3.36, cameraDirection: [0, 0.05, -1] },
+  QUADS: { target: [0, 0.74, 0.12], distance: 3.54, cameraDirection: [0, 0.06, 1] },
+  HAMSTRINGS: { target: [0, 0.72, -0.12], distance: 3.62, cameraDirection: [0, 0.05, -1] },
+  CALVES: { target: [0, 0.6, 0], distance: 3.84, cameraDirection: [0, 0.04, -1] },
 };
 
 const VISUAL_REGION_TO_INDEX: Record<VisualRegionId, number> = Object.fromEntries(
@@ -339,18 +345,22 @@ function CameraFocusController({ selectedRegionId, controlsRef }: CameraFocusCon
       return;
     }
     focusActiveRef.current = true;
-    releaseAfterTransitionRef.current = false;
+    releaseAfterTransitionRef.current = true;
     const focus = CAMERA_FOCUS_BY_REGION[selectedRegionId];
-    const controls = controlsRef.current;
-    const orbitTarget = controls ? controls.target : targetLookAtRef.current;
-    focusDirectionRef.current.copy(camera.position).sub(orbitTarget);
-    if (focusDirectionRef.current.lengthSq() < 0.0001) {
-      focusDirectionRef.current.set(0, 0, 1);
+    if (focus.cameraDirection) {
+      focusDirectionRef.current.set(...focus.cameraDirection).normalize();
     } else {
+      const controls = controlsRef.current;
+      const orbitTarget = controls ? controls.target : targetLookAtRef.current;
+      focusDirectionRef.current.copy(camera.position).sub(orbitTarget);
+      if (focusDirectionRef.current.lengthSq() < 0.0001) {
+        focusDirectionRef.current.set(0, 0, 1);
+      } else {
+        focusDirectionRef.current.normalize();
+      }
+      focusDirectionRef.current.y = clamp(focusDirectionRef.current.y, -0.14, 0.32);
       focusDirectionRef.current.normalize();
     }
-    focusDirectionRef.current.y = clamp(focusDirectionRef.current.y, -0.14, 0.32);
-    focusDirectionRef.current.normalize();
     const nextTarget = focus.target;
     const nextPosition = new THREE.Vector3(...nextTarget).addScaledVector(focusDirectionRef.current, focus.distance);
     const clampedTargetY = clamp(nextTarget[1], CAMERA_MIN_FOCUS_TARGET_Y, CAMERA_MAX_FOCUS_TARGET_Y);
