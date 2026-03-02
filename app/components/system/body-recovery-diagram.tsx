@@ -131,7 +131,7 @@ const HEX_TO_VISUAL_REGION: Record<string, VisualRegionId> = {
   "#3600ff": "CALVES",
 };
 const MASK_BACKGROUND_MAX = 6;
-const CAMERA_DEFAULT_POSITION = [0, 1.08, 5.6] as const;
+const CAMERA_DEFAULT_POSITION = [0, 1.1, 6.2] as const;
 const CAMERA_DEFAULT_TARGET = [0, 0.94, 0] as const;
 const CAMERA_DAMPING = 5.2;
 
