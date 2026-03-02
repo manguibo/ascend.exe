@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityPicker } from "@/components/system/activity-picker";
 import { BodyRecoveryDiagram } from "@/components/system/body-recovery-diagram";
 import { PageHeader } from "@/components/system/page-header";
@@ -34,6 +34,7 @@ import { useSystemSnapshot } from "@/lib/system/use-system-snapshot";
 type ActivityQuestionnaireState = {
   activityId: string;
   durationMinutes: number;
+  durationInput: string;
   intensityLevel: number;
   injuryRegionId: InjuryRegionId;
   injurySeverityLevel: number;
@@ -132,6 +133,7 @@ export default function LogPage() {
     setActivityQuestionnaire({
       activityId: activity.id,
       durationMinutes,
+      durationInput: String(durationMinutes),
       intensityLevel,
       injuryRegionId: input.injuryRegionId,
       injurySeverityLevel: input.injurySeverityLevel,
@@ -147,17 +149,6 @@ export default function LogPage() {
       } else if (next.injurySeverityLevel < 1) {
         next.injurySeverityLevel = 1;
       }
-      const activity = getActivityDefinition(next.activityId);
-      setInput((prev) => ({
-        ...prev,
-        activityId: activity.id,
-        primaryActivityCodename: activity.codename,
-        bodyTrainingProfile: activity.profile,
-        durationMultiplier: durationToMultiplier(next.durationMinutes),
-        intensityMultiplier: intensityToMultiplier(next.intensityLevel),
-        injuryRegionId: next.injuryRegionId,
-        injurySeverityLevel: next.injuryRegionId === "NONE" ? 0 : next.injurySeverityLevel,
-      }));
       return next;
     });
   };
@@ -165,6 +156,23 @@ export default function LogPage() {
   const handleQuestionnaireClose = () => {
     setActivityQuestionnaire(null);
   };
+
+  useEffect(() => {
+    if (!activityQuestionnaire) {
+      return;
+    }
+    const activity = getActivityDefinition(activityQuestionnaire.activityId);
+    setInput((prev) => ({
+      ...prev,
+      activityId: activity.id,
+      primaryActivityCodename: activity.codename,
+      bodyTrainingProfile: activity.profile,
+      durationMultiplier: durationToMultiplier(activityQuestionnaire.durationMinutes),
+      intensityMultiplier: intensityToMultiplier(activityQuestionnaire.intensityLevel),
+      injuryRegionId: activityQuestionnaire.injuryRegionId,
+      injurySeverityLevel: activityQuestionnaire.injuryRegionId === "NONE" ? 0 : activityQuestionnaire.injurySeverityLevel,
+    }));
+  }, [activityQuestionnaire, setInput]);
 
   const handleCommitHistory = () => {
     appendSessionHistoryEntry(input);
@@ -442,8 +450,22 @@ export default function LogPage() {
                   min={10}
                   max={240}
                   step={1}
-                  value={activityQuestionnaire.durationMinutes}
-                  onChange={(event) => handleQuestionnaireUpdate({ durationMinutes: clamp(Number(event.target.value) || 0, 10, 240) })}
+                  value={activityQuestionnaire.durationInput}
+                  onChange={(event) => {
+                    const raw = event.target.value;
+                    if (raw === "") {
+                      handleQuestionnaireUpdate({ durationInput: raw });
+                      return;
+                    }
+                    const parsed = Number(raw);
+                    if (!Number.isFinite(parsed)) {
+                      return;
+                    }
+                    handleQuestionnaireUpdate({
+                      durationInput: raw,
+                      durationMinutes: clamp(parsed, 10, 240),
+                    });
+                  }}
                   className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none transition-colors focus:border-cyan-300"
                 />
               </label>
