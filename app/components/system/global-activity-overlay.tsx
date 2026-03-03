@@ -105,7 +105,7 @@ export function GlobalActivityOverlay() {
       {open ? (
         <section className="pointer-events-auto w-[min(92vw,340px)] border border-cyan-500/45 bg-black/92 p-3 shadow-[0_0_24px_rgba(0,229,255,0.12)]">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] tracking-[0.14em] text-cyan-200">ADD ACTIVITY</p>
+            <p className="text-[11px] tracking-[0.14em] text-cyan-200">CHANGE ACTIVITY</p>
             <button
               type="button"
               onClick={toggleOpen}
@@ -114,7 +114,7 @@ export function GlobalActivityOverlay() {
               CLOSE
             </button>
           </div>
-          <p className="mt-2 text-[10px] tracking-[0.13em] text-cyan-500/90">CURRENT: {selected.label}</p>
+          <p className="mt-2 text-[10px] tracking-[0.13em] text-cyan-500/90">Current: {selected.label}</p>
           <ActivityPicker activities={activityCatalog} selectedActivityId={input.activityId} onSelect={applyActivity} className="mt-3" />
         </section>
       ) : null}
@@ -124,7 +124,7 @@ export function GlobalActivityOverlay() {
         onClick={toggleOpen}
         className="pointer-events-auto mt-2 border border-cyan-300/80 bg-black/90 px-3 py-2 text-xs tracking-[0.16em] text-cyan-100 shadow-[0_0_18px_rgba(0,229,255,0.18)] transition-colors hover:bg-cyan-500/10"
       >
-        + ADD ACTIVITY
+        + CHANGE ACTIVITY
       </button>
 
       <AnimatePresence>
@@ -142,9 +142,9 @@ export function GlobalActivityOverlay() {
               transition={{ duration: 0.18, ease: "easeOut" }}
               className="w-full max-w-md border border-cyan-500/45 bg-black p-4 font-mono"
             >
-              <p className="text-[10px] tracking-[0.2em] text-cyan-500">Activity setup</p>
+              <p className="text-[10px] tracking-[0.2em] text-cyan-500">Activity details</p>
               <p className="mt-2 text-sm text-cyan-100">{getActivityDefinition(activityQuestionnaire.activityId).label}</p>
-              <p className="mt-1 text-[10px] text-cyan-300/85">Set duration and intensity. The body map updates in real time.</p>
+              <p className="mt-1 text-[10px] text-cyan-300/85">Set workout time and effort level.</p>
 
               <label className="mt-4 grid gap-1">
                 <span className="text-[10px] tracking-[0.14em] text-cyan-500">Duration (minutes)</span>
@@ -175,7 +175,7 @@ export function GlobalActivityOverlay() {
 
               <label className="mt-3 grid gap-1">
                 <span className="text-[10px] tracking-[0.14em] text-cyan-500">
-                  Intensity ({activityQuestionnaire.intensityLevel}/10)
+                  Effort ({activityQuestionnaire.intensityLevel}/10)
                 </span>
                 <input
                   type="range"
@@ -189,7 +189,7 @@ export function GlobalActivityOverlay() {
               </label>
 
               <label className="mt-3 grid gap-1">
-                <span className="text-[10px] tracking-[0.14em] text-cyan-500">Injury focus (optional)</span>
+                <span className="text-[10px] tracking-[0.14em] text-cyan-500">Injury area (optional)</span>
                 <select
                   value={activityQuestionnaire.injuryRegionId}
                   onChange={(event) => handleQuestionnaireUpdate({ injuryRegionId: event.target.value as InjuryRegionId })}
@@ -206,7 +206,7 @@ export function GlobalActivityOverlay() {
               {activityQuestionnaire.injuryRegionId !== "NONE" ? (
                 <label className="mt-3 grid gap-1">
                   <span className="text-[10px] tracking-[0.14em] text-cyan-500">
-                    Injury severity ({activityQuestionnaire.injurySeverityLevel}/10)
+                    Injury level ({activityQuestionnaire.injurySeverityLevel}/10)
                   </span>
                   <input
                     type="range"

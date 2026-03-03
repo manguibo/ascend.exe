@@ -19,21 +19,28 @@ const disciplineToneClass: Record<DisciplineState, string> = {
 };
 
 function getProgressBand(progressPct: number): string {
-  if (progressPct >= 75) return "LATE BAND";
-  if (progressPct >= 40) return "MID BAND";
-  return "EARLY BAND";
+  if (progressPct >= 75) return "Almost there";
+  if (progressPct >= 40) return "Making progress";
+  return "Getting started";
 }
 
 function getPressureBand(valuePct: number): string {
-  if (valuePct >= 70) return "HIGH";
-  if (valuePct >= 35) return "MODERATE";
-  return "LOW";
+  if (valuePct >= 70) return "High";
+  if (valuePct >= 35) return "Medium";
+  return "Low";
 }
 
 function getSessionOutcomeLabel(sessionXp: number): string {
-  if (sessionXp >= 180) return "HIGH OUTPUT SESSION";
-  if (sessionXp >= 110) return "SOLID OUTPUT SESSION";
-  return "LOW OUTPUT SESSION";
+  if (sessionXp >= 180) return "Great session";
+  if (sessionXp >= 110) return "Solid session";
+  return "Light session";
+}
+
+function getDisciplineLabel(state: DisciplineState): string {
+  if (state === "OPTIMAL") return "On track";
+  if (state === "STABLE") return "Steady";
+  if (state === "DECLINING") return "Slipping";
+  return "Needs attention";
 }
 
 export default function DashboardPage() {
@@ -45,9 +52,9 @@ export default function DashboardPage() {
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
       <section className="mx-auto grid w-full max-w-6xl gap-6">
         <PageHeader
-          node="ASCEND // Overview"
-          title="Performance Snapshot"
-          description={snapshot.statusLine}
+          node="OVERVIEW"
+          title="Progress Snapshot"
+          description="A simple summary of your recent workout quality, level progress, and consistency."
         />
 
         <TacticalReveal delay={0.04}>
@@ -59,28 +66,28 @@ export default function DashboardPage() {
                 <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">Session output</p>
                 <p className="mt-2 text-lg text-cyan-200">{getSessionOutcomeLabel(snapshot.xp.sessionXp)}</p>
                 <p className="mt-2 text-xs text-cyan-300/80">
-                  Based on your recent session intensity, duration, and consistency.
+                  Based on your recent workout effort and consistency.
                 </p>
               </div>
               <div className="border border-cyan-500/40 p-4">
-                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">Current trajectory</p>
+                <p className="text-[11px] tracking-[0.2em] text-cyan-500/90">Current progress</p>
                 <p className="mt-2 text-lg text-cyan-200">{getProgressBand(rankProgress.bandProgressPct)}</p>
-                <p className="mt-2 text-xs text-cyan-300/80">System trajectory reflects your current rank-band momentum.</p>
+                <p className="mt-2 text-xs text-cyan-300/80">Shows where you are in your current level.</p>
               </div>
             </div>
             <div className="mt-4 border border-cyan-500/35 p-4 text-xs text-cyan-300/85">
-              Mathematical internals are abstracted in this view. Use status changes and directives as your operational signal.
+              This page keeps the math in the background and focuses on practical guidance.
             </div>
           </article>
 
           <aside className="grid gap-6">
-            <CollapsiblePanel panelId="dashboard-rank-status" title="Rank summary">
+            <CollapsiblePanel panelId="dashboard-rank-status" title="Level summary">
               <div className="font-mono">
                 <p className="text-xl tracking-[0.06em] text-cyan-200">{currentRank.id}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">Rank phase: {getProgressBand(rankProgress.bandProgressPct)}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">{rankProgress.nextRank ? `Next rank queued: ${rankProgress.nextRank.id}` : "Highest rank reached"}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">Plan level: {directiveTier.tier}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">Workout frequency: {snapshot.xp.expectedCadence}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Progress stage: {getProgressBand(rankProgress.bandProgressPct)}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">{rankProgress.nextRank ? `Next level: ${rankProgress.nextRank.id}` : "Top level reached"}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Workout plan: {directiveTier.tier}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Workout goal: {snapshot.xp.expectedCadence}</p>
                 <div className="mt-3">
                   <ProgressStatusBadge status={progressEvent} prefix="Status: " />
                 </div>
@@ -90,11 +97,11 @@ export default function DashboardPage() {
             <CollapsiblePanel panelId="dashboard-discipline-index" title="Consistency trend" defaultOpen={false}>
               <div className="font-mono">
                 <p className={`border px-3 py-2 text-sm tracking-[0.18em] ${disciplineToneClass[snapshot.discipline]}`}>
-                  Current state: {snapshot.discipline}
+                  Current state: {getDisciplineLabel(snapshot.discipline)}
                 </p>
-                <p className="mt-3 text-xs text-cyan-300/80">Recovery improves when you keep logging activity, not by waiting.</p>
+                <p className="mt-3 text-xs text-cyan-300/80">Small, regular workouts help more than occasional long breaks.</p>
                 <p className="mt-3 text-xs text-cyan-500/90">
-                  Rank protection check: {demotion.shouldDemote ? "Triggered" : "Not triggered"}.
+                  Level protection check: {demotion.shouldDemote ? "Triggered" : "Not triggered"}.
                 </p>
               </div>
             </CollapsiblePanel>
@@ -102,20 +109,20 @@ export default function DashboardPage() {
             <DisciplineTimeline states={snapshot.recentDisciplineStates} />
 
             <SystemTelemetryPanel
-              primaryLabel="Rank progress"
+              primaryLabel="Level progress"
               primaryValuePct={rankProgress.bandProgressPct}
-              primaryHint="How far you are through this rank band"
+              primaryHint="How close you are to the next level"
               disciplineRiskPct={disciplineRiskPct}
               decayPressurePct={decayPressurePct}
               disciplineStates={snapshot.recentDisciplineStates}
             />
 
-            <CollapsiblePanel panelId="dashboard-xp-decay-control" title="Inactivity pressure" defaultOpen={false}>
+            <CollapsiblePanel panelId="dashboard-xp-decay-control" title="Break risk" defaultOpen={false}>
               <div className="font-mono">
-                <p className="text-xs text-cyan-200">Inactivity pressure: {getPressureBand(decayPressurePct)}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">Consistency risk: {getPressureBand(disciplineRiskPct)}</p>
-                <p className="mt-2 text-xs text-cyan-300/85">Expected cadence: {snapshot.xp.expectedCadence}</p>
-                <p className="mt-3 text-xs text-cyan-500/90">A rank drop only happens with low XP and 7 compromised days.</p>
+                <p className="text-xs text-cyan-200">Time-off risk: {getPressureBand(decayPressurePct)}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Routine risk: {getPressureBand(disciplineRiskPct)}</p>
+                <p className="mt-2 text-xs text-cyan-300/85">Workout goal: {snapshot.xp.expectedCadence}</p>
+                <p className="mt-3 text-xs text-cyan-500/90">Level drops are rare and only happen after extended inactivity.</p>
               </div>
             </CollapsiblePanel>
           </aside>
@@ -123,7 +130,7 @@ export default function DashboardPage() {
         </TacticalReveal>
 
         <TacticalReveal delay={0.08}>
-          <CollapsiblePanel panelId="dashboard-directive-channel" title="Current plan" className="font-mono">
+          <CollapsiblePanel panelId="dashboard-directive-channel" title="Current guidance" className="font-mono">
             <DirectiveStack directives={snapshot.directives} showIndex={false} />
           </CollapsiblePanel>
         </TacticalReveal>

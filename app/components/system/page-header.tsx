@@ -21,7 +21,7 @@ export function PageHeader({ node, title, description, statusLine, children }: P
         <h1 className="mt-3 text-2xl tracking-[0.08em] text-cyan-200">{title}</h1>
         <p className="ui-muted mt-3 max-w-3xl text-sm">{description}</p>
         {statusLine ? <p className="mt-2 text-xs tracking-[0.08em] text-cyan-500/90">{statusLine}</p> : null}
-        <p className="mt-2 text-[10px] tracking-[0.12em] text-cyan-500/75">This view updates as soon as you log a new session.</p>
+        <p className="mt-2 text-[10px] tracking-[0.12em] text-cyan-500/75">This page updates automatically when you save a workout.</p>
         {children ? <div className="mt-4">{children}</div> : null}
         </div>
       </header>

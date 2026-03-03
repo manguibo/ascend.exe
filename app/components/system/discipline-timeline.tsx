@@ -12,16 +12,23 @@ type DisciplineTimelineProps = {
   title?: string;
 };
 
-export function DisciplineTimeline({ states, title = "MISSION-DAY TIMELINE" }: DisciplineTimelineProps) {
+function getFriendlyStateLabel(state: DisciplineState): string {
+  if (state === "OPTIMAL") return "On track";
+  if (state === "STABLE") return "Steady";
+  if (state === "DECLINING") return "Slipping";
+  return "Needs reset";
+}
+
+export function DisciplineTimeline({ states, title = "Past 7 Days" }: DisciplineTimelineProps) {
   return (
     <section className="border border-cyan-500/50 bg-black p-5 font-mono">
       <h2 className="text-xs tracking-[0.22em] text-cyan-500">{title}</h2>
-      <p className="mt-2 text-xs text-cyan-300/80">LAST 7 DAYS. DAY {states.length} IS CURRENT DAY.</p>
+      <p className="mt-2 text-xs text-cyan-300/80">Your most recent week. Day {states.length} is today.</p>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         {states.map((state, index) => (
           <div key={`timeline-day-${index + 1}`} className={`border px-3 py-2 ${stateToneClass[state]}`}>
             <p className="text-[11px] tracking-[0.18em]">DAY {index + 1}</p>
-            <p className="mt-1 text-sm tracking-[0.12em]">{state}</p>
+            <p className="mt-1 text-sm tracking-[0.12em]">{getFriendlyStateLabel(state)}</p>
           </div>
         ))}
       </div>

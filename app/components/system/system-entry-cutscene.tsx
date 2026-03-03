@@ -6,11 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 const CUTSCENE_MS = 3400;
 
 const sequence = [
-  { atMs: 250, text: "ASCEND.EXE // TACTICAL PERFORMANCE SYSTEM" },
-  { atMs: 900, text: "AUTHENTICATING OPERATOR PROFILE" },
-  { atMs: 1600, text: "SYNCING DISCIPLINE INDEX" },
-  { atMs: 2300, text: "CALIBRATING READINESS TELEMETRY" },
-  { atMs: 3000, text: "SYSTEM ONLINE" },
+  { atMs: 250, text: "ASCEND.EXE // YOUR TRAINING COMPANION" },
+  { atMs: 900, text: "LOADING YOUR PROFILE" },
+  { atMs: 1600, text: "UPDATING YOUR WEEKLY TRACKING" },
+  { atMs: 2300, text: "PREPARING TODAY'S GUIDANCE" },
+  { atMs: 3000, text: "READY" },
 ] as const;
 
 export function SystemEntryCutscene() {
@@ -69,7 +69,7 @@ export function SystemEntryCutscene() {
           <section className="relative mx-auto flex h-full w-[min(96vw,860px)] flex-col justify-center px-5 py-8 text-cyan-200">
             <div className="ui-panel relative border-cyan-400/55 p-5 shadow-[0_0_34px_rgba(0,229,255,0.16)]">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <p className="text-[10px] tracking-[0.2em] text-cyan-400">BOOT SEQUENCE</p>
+                <p className="text-[10px] tracking-[0.2em] text-cyan-400">LOADING</p>
                 <button
                   type="button"
                   onClick={() => setActive(false)}
@@ -87,7 +87,7 @@ export function SystemEntryCutscene() {
                   transition={{ duration: 0.12, ease: "linear" }}
                 />
               </div>
-              <p className="mt-2 text-[10px] tracking-[0.16em] text-cyan-500/90">ENTRY CHECK {progress}%</p>
+              <p className="mt-2 text-[10px] tracking-[0.16em] text-cyan-500/90">Loading {progress}%</p>
 
               <div className="mt-4 grid min-h-[168px] content-start gap-2 border border-cyan-500/25 bg-black/60 p-3">
                 {visibleLines.map((line) => (

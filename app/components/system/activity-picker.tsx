@@ -59,7 +59,7 @@ export function ActivityPicker({ activities, selectedActivityId, onSelect, class
           type="text"
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value.toUpperCase())}
-          placeholder="TYPE: JOGGING, FOOTBALL, BJJ"
+          placeholder="Try: jogging, football, climbing"
           className="border border-cyan-500/40 bg-black px-3 py-2 text-xs tracking-[0.08em] text-cyan-200 outline-none transition-colors placeholder:text-cyan-700/70 focus:border-cyan-300"
         />
       </label>
@@ -68,9 +68,9 @@ export function ActivityPicker({ activities, selectedActivityId, onSelect, class
         <>
           <div className="mt-3 grid gap-2">
             <div className="flex items-center justify-between text-[10px] tracking-[0.13em] text-cyan-500/90">
-              <span>MATCHES {filtered.length}</span>
+              <span>RESULTS {filtered.length}</span>
               <span>
-                INDEX {resolvedIndex + 1}/{filtered.length}
+                ITEM {resolvedIndex + 1}/{filtered.length}
               </span>
             </div>
             <input
@@ -89,7 +89,7 @@ export function ActivityPicker({ activities, selectedActivityId, onSelect, class
                 onClick={() => setSliderIndex((index) => clampIndex(index - 1, filtered.length))}
                 className="border border-cyan-500/35 px-2 py-1 text-[10px] tracking-[0.14em] text-cyan-300 transition-colors enabled:hover:bg-cyan-500/10 disabled:opacity-40"
               >
-                PREV
+                PREVIOUS
               </button>
               <button
                 type="button"
@@ -105,14 +105,13 @@ export function ActivityPicker({ activities, selectedActivityId, onSelect, class
           {active ? (
             <div className="mt-3 border border-cyan-500/35 bg-cyan-500/[0.04] p-3">
               <p className="text-xs tracking-[0.14em] text-cyan-100">{active.label}</p>
-              <p className="mt-1 text-[10px] tracking-[0.12em] text-cyan-500/90">PROFILE {active.profile}</p>
-              <p className="mt-1 text-[10px] tracking-[0.12em] text-cyan-500/90">CODE {active.codename}</p>
+              <p className="mt-1 text-[10px] tracking-[0.12em] text-cyan-500/90">Type: {active.profile}</p>
               <button
                 type="button"
                 onClick={() => onSelect(active.id)}
                 className="mt-3 w-full border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-xs tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20"
               >
-                APPLY ACTIVITY
+                USE THIS ACTIVITY
               </button>
             </div>
           ) : null}
@@ -136,10 +135,10 @@ export function ActivityPicker({ activities, selectedActivityId, onSelect, class
         </>
       ) : (
         <div className="mt-3 border border-[#7a2f35]/65 bg-[#2a0f12]/60 p-3 text-[10px] tracking-[0.14em] text-[#ff9aa4]">
-          <p>NO ACTIVITY MATCH FOUND.</p>
+          <p>No matching activity found.</p>
           {suggestions.length > 0 ? (
             <div className="mt-2">
-              <p className="text-cyan-300/90">TRY ONE OF THESE:</p>
+              <p className="text-cyan-300/90">Try one of these:</p>
               <div className="mt-2 grid gap-1">
                 {suggestions.map((activity) => (
                   <button

@@ -65,9 +65,9 @@ export default function SettingsPage() {
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
       <section className="mx-auto grid w-full max-w-6xl gap-6">
         <PageHeader
-          node="ASCEND // Settings"
+          node="SETTINGS"
           title="Preferences and Controls"
-          description="Adjust how data is displayed and manage your app state."
+          description="Adjust display, audio, and account data in one place."
           statusLine="Changes apply immediately"
         />
 
@@ -97,7 +97,7 @@ export default function SettingsPage() {
                 </label>
 
                 <label className="grid gap-1">
-                  <span className="text-xs tracking-[0.14em] text-cyan-500">Layout density</span>
+                  <span className="text-xs tracking-[0.14em] text-cyan-500">Layout size</span>
                   <select
                     value={density}
                     onChange={(event) => setDensity(event.target.value as "FULL" | "COMPACT")}
@@ -202,10 +202,10 @@ export default function SettingsPage() {
               </div>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="settings-assistant" title="Assistant setup" className="font-mono">
+            <CollapsiblePanel panelId="settings-assistant" title="Welcome setup" className="font-mono">
               <div className="grid gap-3">
                 <p className="text-xs text-cyan-300/85">
-                  Re-run first-time setup if you want to reconfigure baseline goals and startup activity selection.
+                  Re-run first-time setup if you want to update your goals and starter activity.
                 </p>
                 <button
                   type="button"

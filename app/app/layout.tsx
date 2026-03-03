@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ASCEND.EXE",
-  description: "Tactical Performance System",
+  description: "Personal workout and progress companion",
 };
 
 export default function RootLayout({

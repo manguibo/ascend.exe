@@ -22,15 +22,22 @@ const disciplineToneClass: Record<DisciplineState, string> = {
 };
 
 function getPressureBand(valuePct: number): string {
-  if (valuePct >= 70) return "HIGH";
-  if (valuePct >= 35) return "MODERATE";
-  return "LOW";
+  if (valuePct >= 70) return "High";
+  if (valuePct >= 35) return "Medium";
+  return "Low";
 }
 
 function getProgressBand(progressPct: number): string {
-  if (progressPct >= 75) return "LATE BAND";
-  if (progressPct >= 40) return "MID BAND";
-  return "EARLY BAND";
+  if (progressPct >= 75) return "Almost there";
+  if (progressPct >= 40) return "Making progress";
+  return "Getting started";
+}
+
+function getDisciplineLabel(state: DisciplineState): string {
+  if (state === "OPTIMAL") return "On track";
+  if (state === "STABLE") return "Steady";
+  if (state === "DECLINING") return "Slipping";
+  return "Needs attention";
 }
 
 export default function Home() {
@@ -45,9 +52,9 @@ export default function Home() {
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
       <section className="mx-auto grid w-full max-w-6xl gap-6">
         <PageHeader
-          node="ASCEND // Home"
+          node="HOME"
           title="Your Training Assistant"
-          description={snapshot.statusLine}
+          description="A simple view of what to do next, how your body is feeling, and how your week is going."
         />
 
         <TacticalReveal delay={0.04}>
@@ -74,27 +81,27 @@ export default function Home() {
           <section className="grid gap-4 sm:grid-cols-3">
             <StatusTile label="Mode" value={snapshot.mode} />
             <StatusTile label="Consistency">
-              <p className={`border px-2 py-1 text-sm tracking-[0.16em] ${disciplineToneClass[snapshot.discipline]}`}>{snapshot.discipline}</p>
+              <p className={`border px-2 py-1 text-sm tracking-[0.16em] ${disciplineToneClass[snapshot.discipline]}`}>{getDisciplineLabel(snapshot.discipline)}</p>
             </StatusTile>
             <StatusTile
-              label="Inactivity pressure"
+              label="Time-off risk"
               value={getPressureBand(decayPressurePct)}
-              detail={`Cadence: ${snapshot.xp.expectedCadence}`}
+              detail={`Workout goal: ${snapshot.xp.expectedCadence}`}
             />
             <StatusTile
-              label="Rank"
+              label="Current level"
               value={currentRank.id}
               detail={
                 <>
-                  <p>{rankProgress.nextRank ? `Next ${rankProgress.nextRank.id}` : "Highest rank reached"}</p>
+                  <p>{rankProgress.nextRank ? `Next level: ${rankProgress.nextRank.id}` : "You are at the top level"}</p>
                   <p>{getProgressBand(rankProgress.bandProgressPct)}</p>
                 </>
               }
             />
             <StatusTile
-              label="Plan level"
+              label="Workout plan"
               value={directiveTier.tier}
-              detail={directiveTier.nextThreshold ? "Next level available after sustained progress" : "Highest level active"}
+              detail={directiveTier.nextThreshold ? "Your plan will step up as you stay consistent" : "You are on the highest plan"}
             />
             <StatusTile label="Status">
               <ProgressStatusBadge status={progressEvent} />
@@ -104,9 +111,9 @@ export default function Home() {
 
         <TacticalReveal delay={0.12}>
           <SystemTelemetryPanel
-            primaryLabel="Rank progress"
+            primaryLabel="Level progress"
             primaryValuePct={rankProgress.bandProgressPct}
-            primaryHint="Progress in your current rank band"
+            primaryHint="How close you are to your next level"
             disciplineRiskPct={disciplineRiskPct}
             decayPressurePct={decayPressurePct}
             disciplineStates={snapshot.recentDisciplineStates}
@@ -116,7 +123,7 @@ export default function Home() {
         <TacticalReveal delay={0.16}>
           <section className="border border-cyan-500/50 p-5 font-mono">
             <h2 className="text-xs tracking-[0.22em] text-cyan-500">Quick actions</h2>
-            <p className="mt-2 text-xs text-cyan-300/80">Apply a preset to quickly update your workout log, overview, and plan recommendations.</p>
+            <p className="mt-2 text-xs text-cyan-300/80">Use a preset to fill common workout settings quickly.</p>
             <SessionProfileButtons
               className="mt-4 grid gap-2 sm:grid-cols-3"
               profiles={sessionProfiles}

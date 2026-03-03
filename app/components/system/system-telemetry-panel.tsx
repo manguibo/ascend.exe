@@ -33,19 +33,20 @@ export function SystemTelemetryPanel({
   const decayPressure = Math.max(0, Math.min(100, Math.round(decayPressurePct)));
   const decayPressureBand = getRiskBand(decayPressure);
   const activeNodes = Math.max(1, Math.round((readiness / 100) * 12));
+  const readinessLabel = getRiskBand(100 - readiness);
 
   return (
     <TacticalVisualPanel title="Health Overview">
       <div className="grid gap-2 border border-cyan-500/30 bg-black/70 px-3 py-2 text-[10px] tracking-[0.14em] text-cyan-300 sm:grid-cols-3">
-        <p>Readiness status: {getRiskBand(100 - readiness)}</p>
-        <p>Consistency risk: {disciplineRiskBand}</p>
-        <p>Inactivity risk: {decayPressureBand}</p>
+        <p>Recovery today: {readinessLabel}</p>
+        <p>Routine risk: {disciplineRiskBand}</p>
+        <p>Time-off risk: {decayPressureBand}</p>
       </div>
       {showMatrix ? (
         <div className="grid gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] tracking-[0.17em] text-cyan-500/90">System status grid</p>
-            <p className="text-[10px] tracking-[0.14em] text-cyan-500/90">Active cells {activeNodes}/12</p>
+            <p className="text-[10px] tracking-[0.17em] text-cyan-500/90">Quick status grid</p>
+            <p className="text-[10px] tracking-[0.14em] text-cyan-500/90">Filled cells {activeNodes}/12</p>
           </div>
           <div className="grid grid-cols-6 gap-2">
             {Array.from({ length: 12 }).map((_, index) => {
@@ -68,9 +69,9 @@ export function SystemTelemetryPanel({
             })}
           </div>
           <div className="grid gap-2 text-[10px] tracking-[0.15em] text-cyan-300 sm:grid-cols-3">
-            <p className="border border-cyan-500/35 px-2 py-1">Readiness {readiness}%</p>
-            <p className="border border-[#4b2a78] px-2 py-1 text-[#c7acff]">Consistency risk {disciplineRisk}% {disciplineRiskBand}</p>
-            <p className="border border-[#7a2f35] px-2 py-1 text-[#ff8d97]">Inactivity pressure {decayPressure}% {decayPressureBand}</p>
+            <p className="border border-cyan-500/35 px-2 py-1">Recovery {readiness}%</p>
+            <p className="border border-[#4b2a78] px-2 py-1 text-[#c7acff]">Routine risk {disciplineRisk}% {disciplineRiskBand}</p>
+            <p className="border border-[#7a2f35] px-2 py-1 text-[#ff8d97]">Time-off risk {decayPressure}% {decayPressureBand}</p>
           </div>
         </div>
       ) : null}
@@ -78,22 +79,22 @@ export function SystemTelemetryPanel({
         <div className="grid gap-3">
           <SignalMeter label={primaryLabel} value={primaryValuePct} hint={primaryHint} />
           <SignalMeter
-            label={`Consistency risk (${disciplineRiskBand})`}
+            label={`Routine risk (${disciplineRiskBand})`}
             value={disciplineRiskPct}
             tone={disciplineRiskBand === "HIGH" || disciplineRiskBand === "CRITICAL" ? "red" : "purple"}
-            hint="Based on compromised days in the last 7 days"
+            hint="Based on the past 7 days"
           />
           <SignalMeter
-            label={`Inactivity pressure (${decayPressureBand})`}
+            label={`Time-off risk (${decayPressureBand})`}
             value={decayPressurePct}
             tone={decayPressureBand === "LOW" ? "cyan" : decayPressureBand === "MODERATE" ? "purple" : "red"}
-            hint="Based on inactive days past your grace window"
+            hint="Higher when you go longer between workouts"
           />
         </div>
         <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-          <RadialGauge label="Readiness" value={primaryValuePct} />
-          <RadialGauge label="Consistency" value={disciplineRiskPct} tone="purple" />
-          <RadialGauge label="Inactivity" value={decayPressurePct} tone="red" />
+          <RadialGauge label="Recovery" value={primaryValuePct} />
+          <RadialGauge label="Routine" value={disciplineRiskPct} tone="purple" />
+          <RadialGauge label="Break Risk" value={decayPressurePct} tone="red" />
         </div>
       </div>
       {disciplineStates ? <DisciplineHeatline states={disciplineStates} /> : null}

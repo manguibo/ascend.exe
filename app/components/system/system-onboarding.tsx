@@ -19,12 +19,12 @@ type StepId = "BOOT" | "BODY" | "GOAL" | "ACTIVITY" | "READY";
 const stepOrder: readonly StepId[] = ["BOOT", "BODY", "GOAL", "ACTIVITY", "READY"];
 
 const goalOptions: readonly { id: OnboardingGoalId; label: string; detail: string }[] = [
-  { id: "GENERAL_FITNESS", label: "GENERAL FITNESS", detail: "Balanced performance and health improvements." },
-  { id: "FAT_LOSS", label: "FAT LOSS", detail: "Prioritize consistency, calorie control, and conditioning." },
-  { id: "MUSCLE_GAIN", label: "MUSCLE GAIN", detail: "Prioritize overload, nutrition, and recovery quality." },
-  { id: "ENDURANCE", label: "ENDURANCE", detail: "Build sustainable capacity and work output over time." },
-  { id: "STRENGTH", label: "STRENGTH", detail: "Focus on progressive intensity and structural recovery." },
-  { id: "CONSISTENCY", label: "CONSISTENCY", detail: "Lock routine reliability before increasing complexity." },
+  { id: "GENERAL_FITNESS", label: "GENERAL FITNESS", detail: "Build healthy habits and feel better overall." },
+  { id: "FAT_LOSS", label: "FAT LOSS", detail: "Focus on regular workouts and weight-loss support." },
+  { id: "MUSCLE_GAIN", label: "MUSCLE GAIN", detail: "Focus on strength workouts and recovery." },
+  { id: "ENDURANCE", label: "ENDURANCE", detail: "Improve stamina so longer sessions feel easier." },
+  { id: "STRENGTH", label: "STRENGTH", detail: "Build power with gradual increases over time." },
+  { id: "CONSISTENCY", label: "CONSISTENCY", detail: "Create a routine you can stick with every week." },
 ];
 
 function clamp(value: number, min: number, max: number): number {
@@ -155,7 +155,7 @@ export function SystemOnboarding() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] tracking-[0.2em] text-cyan-500">ASCEND.EXE INITIALIZATION</p>
-                    <h2 className="mt-2 text-lg tracking-[0.08em] text-cyan-100">POWERING NEW SYSTEM PROFILE</h2>
+                    <h2 className="mt-2 text-lg tracking-[0.08em] text-cyan-100">SETTING UP YOUR PROFILE</h2>
                   </div>
                   <button
                     type="button"
@@ -176,7 +176,7 @@ export function SystemOnboarding() {
                   />
                 </div>
                 <p className="mt-1 text-[10px] tracking-[0.13em] text-cyan-500/85">
-                  STEP {stepIndex + 1}/{stepOrder.length} | {progressPct}% COMPLETE
+                  Step {stepIndex + 1}/{stepOrder.length} | {progressPct}% complete
                 </p>
 
                 <AnimatePresence mode="wait">
@@ -190,13 +190,13 @@ export function SystemOnboarding() {
                   >
                     {currentStep === "BOOT" ? (
                       <div className="grid gap-3">
-                        <p className="text-sm text-cyan-200">Welcome. This setup will configure your baseline profile and activity context.</p>
-                        <p className="text-xs text-cyan-300/85">Your entries will initialize readiness, stress load, and recommended recovery routing.</p>
+                        <p className="text-sm text-cyan-200">Welcome. This quick setup personalizes the app for you.</p>
+                        <p className="text-xs text-cyan-300/85">It only takes a minute, and you can edit everything later in Settings.</p>
                         <div className="grid gap-2 text-xs text-cyan-300/90">
-                          <p className="border border-cyan-500/25 px-3 py-2">1. BODY BASELINE</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">2. PRIMARY GOAL</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">3. CURRENT ACTIVITIES</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">4. SYSTEM STARTUP</p>
+                          <p className="border border-cyan-500/25 px-3 py-2">1. YOUR BODY DETAILS</p>
+                          <p className="border border-cyan-500/25 px-3 py-2">2. YOUR MAIN GOAL</p>
+                          <p className="border border-cyan-500/25 px-3 py-2">3. YOUR ACTIVITIES</p>
+                          <p className="border border-cyan-500/25 px-3 py-2">4. FINAL CHECK</p>
                         </div>
                       </div>
                     ) : null}
@@ -260,7 +260,7 @@ export function SystemOnboarding() {
                           />
                         </label>
                         <label className="grid gap-1">
-                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">FITNESS BASELINE (%)</span>
+                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">FITNESS LEVEL (0-100)</span>
                           <input
                             type="number"
                             step="1"
@@ -270,7 +270,7 @@ export function SystemOnboarding() {
                           />
                         </label>
                         <label className="grid gap-1 sm:col-span-2">
-                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">WORKOUT FREQUENCY</span>
+                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">WORKOUT GOAL</span>
                           <select
                             value={expectedCadence}
                             onChange={(event) => setExpectedCadence(event.target.value as (typeof cadenceOptions)[number])}
@@ -312,11 +312,11 @@ export function SystemOnboarding() {
                             type="text"
                             value={search}
                             onChange={(event) => setSearch(event.target.value.toUpperCase())}
-                            placeholder="TYPE: RUNNING, CLIMBING, SOCCER"
+                            placeholder="Try: running, climbing, soccer"
                             className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none placeholder:text-cyan-700/70 focus:border-cyan-300"
                           />
                         </label>
-                        <p className="text-[11px] text-cyan-300/90">Choose activities you already do. Then select one as your primary startup activity.</p>
+                        <p className="text-[11px] text-cyan-300/90">Pick activities you do now, then choose your main one.</p>
                         <div className="grid max-h-56 gap-2 overflow-auto border border-cyan-500/25 p-2">
                           {filteredActivities.slice(0, 40).map((activity) => {
                             const selected = selectedActivities.includes(activity.id);
@@ -331,7 +331,7 @@ export function SystemOnboarding() {
                                       selected ? "border-cyan-300 text-cyan-100" : "border-cyan-500/35 text-cyan-300"
                                     }`}
                                   >
-                                    {selected ? "SELECTED" : "SELECT"}
+                                    {selected ? "ADDED" : "ADD"}
                                   </button>
                                   <button
                                     type="button"
@@ -341,11 +341,11 @@ export function SystemOnboarding() {
                                       primary ? "border-cyan-300 bg-cyan-500/10 text-cyan-100" : "border-cyan-500/35 text-cyan-300"
                                     } disabled:opacity-35`}
                                   >
-                                    {primary ? "PRIMARY" : "SET PRIMARY"}
+                                    {primary ? "MAIN" : "SET MAIN"}
                                   </button>
                                 </div>
                                 <p className="mt-2 text-xs tracking-[0.14em] text-cyan-200">{activity.label}</p>
-                                <p className="mt-1 text-[10px] tracking-[0.12em] text-cyan-500/90">PROFILE {activity.profile} | {activity.codename}</p>
+                                <p className="mt-1 text-[10px] tracking-[0.12em] text-cyan-500/90">Type: {activity.profile}</p>
                               </div>
                             );
                           })}
@@ -355,8 +355,8 @@ export function SystemOnboarding() {
 
                     {currentStep === "READY" ? (
                       <div className="grid gap-2">
-                        <p className="text-sm text-cyan-100">System profile ready.</p>
-                        <p className="text-xs text-cyan-300/85">Review final startup configuration:</p>
+                        <p className="text-sm text-cyan-100">You are all set.</p>
+                        <p className="text-xs text-cyan-300/85">Review your setup:</p>
                         <div className="grid gap-2 text-xs text-cyan-300/90 sm:grid-cols-2">
                           <p className="border border-cyan-500/25 px-3 py-2">HEIGHT {formatHeight(clamp(heightCm, 120, 230), unitSystem)}</p>
                           <p className="border border-cyan-500/25 px-3 py-2">WEIGHT {formatWeight(clamp(bodyWeightKg, 20, 350), unitSystem)}</p>
@@ -365,7 +365,7 @@ export function SystemOnboarding() {
                           <p className="border border-cyan-500/25 px-3 py-2">GOAL {goal.replaceAll("_", " ")}</p>
                           <p className="border border-cyan-500/25 px-3 py-2">FREQUENCY {expectedCadence}</p>
                           <p className="border border-cyan-500/25 px-3 py-2 sm:col-span-2">
-                            PRIMARY ACTIVITY {getActivityDefinition(primaryActivityId || selectedActivities[0] || input.activityId).label}
+                            MAIN ACTIVITY {getActivityDefinition(primaryActivityId || selectedActivities[0] || input.activityId).label}
                           </p>
                         </div>
                       </div>
@@ -398,7 +398,7 @@ export function SystemOnboarding() {
                       onClick={completeOnboarding}
                       className="border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-xs tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20"
                     >
-                      INITIALIZE SYSTEM
+                      FINISH SETUP
                     </button>
                   )}
                 </div>

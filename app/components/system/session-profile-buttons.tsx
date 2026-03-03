@@ -24,7 +24,7 @@ export function SessionProfileButtons({ profiles, onApply, className }: SessionP
         >
           <p>{profile.label}</p>
           <p className="mt-1 text-[10px] text-cyan-500/90">
-            B{profile.baseRate} I{profile.intensityMultiplier.toFixed(2)} D{profile.durationMultiplier.toFixed(2)}
+            Intensity {Math.round(profile.intensityMultiplier * 100)}% | Duration {Math.round(profile.durationMultiplier * 100)}%
           </p>
         </motion.button>
       ))}

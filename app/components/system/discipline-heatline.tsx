@@ -17,7 +17,7 @@ const stateToneClass: Record<DisciplineState, string> = {
 export function DisciplineHeatline({ states }: DisciplineHeatlineProps) {
   return (
     <div className="border border-cyan-500/35 bg-black/80 p-3 font-mono">
-      <p className="text-[10px] tracking-[0.15em] text-cyan-500/90">CONSISTENCY TREND</p>
+      <p className="text-[10px] tracking-[0.15em] text-cyan-500/90">WEEKLY CONSISTENCY</p>
       <div className="mt-2 grid grid-cols-7 gap-1">
         {states.map((state, index) => (
           <div key={`discipline-heat-${index + 1}`} className="grid gap-1">

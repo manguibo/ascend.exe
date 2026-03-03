@@ -22,8 +22,8 @@ export function GlobalQuickActions() {
   const { open, toggleOpen } = useUiPanelOpen("global-quick-actions", false);
 
   const summary = useMemo(() => {
-    return `XP ${snapshot.xp.totalXp} | ACTIVITY ${snapshot.activity.codename} | HEIGHT ${formatHeight(input.heightCm, input.unitSystem)} | WEIGHT ${formatWeight(input.bodyWeightKg, input.unitSystem)}`;
-  }, [snapshot.xp.totalXp, snapshot.activity.codename, input.heightCm, input.bodyWeightKg, input.unitSystem]);
+    return `Points ${snapshot.xp.totalXp} | Activity ${snapshot.activity.label} | Height ${formatHeight(input.heightCm, input.unitSystem)} | Weight ${formatWeight(input.bodyWeightKg, input.unitSystem)}`;
+  }, [snapshot.xp.totalXp, snapshot.activity.label, input.heightCm, input.bodyWeightKg, input.unitSystem]);
 
   const setNumberField = (field: keyof Pick<SessionLogInput, "heightCm" | "bodyWeightKg" | "targetWeightKg" | "fitnessBaselinePct">, rawValue: string) => {
     setInput((current) => {
@@ -44,19 +44,19 @@ export function GlobalQuickActions() {
     <section className="border-b border-cyan-500/20 bg-black/80 px-6 py-2 sm:px-10 lg:px-16">
       <div className="mx-auto w-full max-w-6xl">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="font-mono text-[10px] tracking-[0.16em] text-cyan-500/90">GLOBAL QUICK ACTIONS | {summary}</p>
+          <p className="font-mono text-[10px] tracking-[0.16em] text-cyan-500/90">QUICK EDITS | {summary}</p>
           <button
             type="button"
             onClick={toggleOpen}
             className="border border-cyan-500/40 px-3 py-1.5 font-mono text-[10px] tracking-[0.16em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
           >
-            {open ? "HIDE" : "OPEN"}
+            {open ? "HIDE" : "EDIT"}
           </button>
         </div>
         {open ? (
           <div className="mt-3 grid gap-3">
             <section className="border border-cyan-500/35 p-3 font-mono">
-              <p className="text-[10px] tracking-[0.16em] text-cyan-500/90">PERSONAL BASELINE</p>
+              <p className="text-[10px] tracking-[0.16em] text-cyan-500/90">PERSONAL DETAILS</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="grid gap-1">
                   <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">HEIGHT ({getHeightUnitLabel(input.unitSystem).toUpperCase()})</span>
@@ -92,7 +92,7 @@ export function GlobalQuickActions() {
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">FITNESS BASELINE (%)</span>
+                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">FITNESS LEVEL (0-100)</span>
                   <input
                     type="number"
                     inputMode="decimal"
@@ -103,7 +103,7 @@ export function GlobalQuickActions() {
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">WORKOUT FREQUENCY</span>
+                  <span className="text-[10px] tracking-[0.14em] text-cyan-500/90">WORKOUT GOAL</span>
                   <select
                     value={input.expectedCadence}
                     onChange={(event) => setInput((current) => ({ ...current, expectedCadence: event.target.value as SessionLogInput["expectedCadence"] }))}
@@ -143,7 +143,7 @@ export function GlobalQuickActions() {
               onClick={() => setInput((current) => resetSessionInputToStandard(current))}
               className="w-fit border border-cyan-500/40 px-3 py-2 font-mono text-xs tracking-[0.16em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
             >
-              RESET TO STANDARD
+              RESET TO DEFAULTS
             </button>
           </div>
         ) : null}

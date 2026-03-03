@@ -12,8 +12,8 @@ type NavItem = {
 const navItems: readonly NavItem[] = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Overview" },
-  { href: "/log", label: "Log Workout" },
-  { href: "/directives", label: "Plans" },
+  { href: "/log", label: "Add Workout" },
+  { href: "/directives", label: "Guidance" },
   { href: "/settings", label: "Settings" },
 ];
 
@@ -46,7 +46,7 @@ export function TopNav() {
           onClick={toggleDensity}
           className="border border-cyan-500/40 px-3 py-2 font-mono text-xs tracking-[0.16em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
         >
-          Layout {density}
+          View {density}
         </button>
       </div>
     </nav>

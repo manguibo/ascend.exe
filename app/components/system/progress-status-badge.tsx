@@ -6,6 +6,15 @@ type ProgressStatusBadgeProps = {
 };
 
 export function ProgressStatusBadge({ status, prefix = "" }: ProgressStatusBadgeProps) {
+  const friendlyStatus =
+    status === "PROMOTION READY"
+      ? "Ready to level up"
+      : status === "PROMOTION PROXIMITY"
+        ? "Almost at next level"
+        : status === "DEMOTION RISK"
+          ? "Needs attention"
+          : "Steady progress";
+
   const statusClass =
     status === "DEMOTION RISK"
       ? "border-[#7a2f35] bg-[#1a080a] text-[#ff8d97]"
@@ -15,5 +24,5 @@ export function ProgressStatusBadge({ status, prefix = "" }: ProgressStatusBadge
           ? "border-cyan-500/50 bg-black text-cyan-300"
           : "border-cyan-500/35 bg-black text-cyan-400";
 
-  return <p className={`border px-3 py-2 text-xs tracking-[0.16em] ${statusClass}`}>{`${prefix}${status}`}</p>;
+  return <p className={`border px-3 py-2 text-xs tracking-[0.16em] ${statusClass}`}>{`${prefix}${friendlyStatus}`}</p>;
 }

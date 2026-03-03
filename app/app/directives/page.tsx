@@ -20,58 +20,60 @@ export default function DirectivesPage() {
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
       <section className="mx-auto grid w-full max-w-6xl gap-6">
         <PageHeader
-          node="ASCEND // Plans"
-          title="Plan Center"
-          description="Your plan level updates from your current XP band."
+          node="GUIDANCE"
+          title="Your Workout Guidance"
+          description="Simple next steps based on your recent workouts and consistency."
         />
 
         <TacticalReveal delay={0.04}>
           <section className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
-            <CollapsiblePanel panelId="directives-active-directives" title="Active plans" className="font-mono">
+            <CollapsiblePanel panelId="directives-active-directives" title="Today's guidance" className="font-mono">
               <DirectiveStack directives={snapshot.directives} />
             </CollapsiblePanel>
 
           <aside className="grid gap-4 font-mono">
-            <CollapsiblePanel panelId="directives-scale" title="Plan level">
+            <CollapsiblePanel panelId="directives-scale" title="Plan summary">
               <p className="text-2xl text-cyan-200">{scaleTier.tier}</p>
-              <p className="mt-2 text-sm text-cyan-300/90">Frequency: {snapshot.xp.expectedCadence}</p>
+              <p className="mt-2 text-sm text-cyan-300/90">Workout goal: {snapshot.xp.expectedCadence}</p>
               <p className="mt-2 text-xs text-cyan-300/90">
-                Rank-band progress: {rankProgress.bandProgressPct >= 75 ? "LATE" : rankProgress.bandProgressPct >= 40 ? "MID" : "EARLY"}
+                Level progress: {rankProgress.bandProgressPct >= 75 ? "Almost there" : rankProgress.bandProgressPct >= 40 ? "Making progress" : "Getting started"}
               </p>
               <p className="mt-2 text-xs text-cyan-500/90">
-                {scaleTier.nextThreshold === null ? "You are at the highest plan level." : "Next level unlocks with continued consistency."}
+                {scaleTier.nextThreshold === null ? "You are on the highest plan." : "Your plan increases as you stay consistent."}
               </p>
             </CollapsiblePanel>
 
             <CollapsiblePanel panelId="directives-discipline-status" title="Consistency status" defaultOpen={false}>
-              <p className="text-sm text-cyan-200">State: {snapshot.discipline}</p>
-              <p className="mt-2 text-xs text-cyan-300/80">If consistency declines, plan recommendations become more conservative.</p>
+              <p className="text-sm text-cyan-200">
+                State: {snapshot.discipline === "OPTIMAL" ? "On track" : snapshot.discipline === "STABLE" ? "Steady" : snapshot.discipline === "DECLINING" ? "Slipping" : "Needs attention"}
+              </p>
+              <p className="mt-2 text-xs text-cyan-300/80">When consistency drops, recommendations become lighter and easier to maintain.</p>
             </CollapsiblePanel>
 
-            <DisciplineTimeline states={snapshot.recentDisciplineStates} title="Consistency timeline" />
+            <DisciplineTimeline states={snapshot.recentDisciplineStates} title="Recent consistency" />
 
             <SystemTelemetryPanel
               primaryLabel="Plan readiness"
               primaryValuePct={rankProgress.bandProgressPct}
-              primaryHint="Progress within your current rank band"
+              primaryHint="How close you are to your next level"
               disciplineRiskPct={disciplineRiskPct}
               decayPressurePct={decayPressurePct}
               disciplineStates={snapshot.recentDisciplineStates}
             />
 
-            <CollapsiblePanel panelId="directives-rank-integrity" title="Rank health" defaultOpen={false}>
+            <CollapsiblePanel panelId="directives-rank-integrity" title="Level health" defaultOpen={false}>
               <MicroMetricGrid
                 columns={2}
                 items={[
-                  { label: "CURRENT RANK", value: currentRank.id },
-                  { label: "RANK PROTECTION", value: "ACTIVE", tone: "subtle" },
+                  { label: "CURRENT LEVEL", value: currentRank.id },
+                  { label: "LEVEL PROTECTION", value: "ACTIVE", tone: "subtle" },
                   {
-                    label: "NEXT RANK",
-                    value: rankProgress.nextRank ? rankProgress.nextRank.id : "MAXIMUM RANK ACHIEVED",
+                    label: "NEXT LEVEL",
+                    value: rankProgress.nextRank ? rankProgress.nextRank.id : "TOP LEVEL REACHED",
                     tone: "subtle",
                   },
                   {
-                    label: "DEMOTION CHECK",
+                    label: "DROP CHECK",
                     value: demotion.shouldDemote ? "TRIGGERED" : "NOT TRIGGERED",
                     tone: demotion.shouldDemote ? "red" : "purple",
                   },

@@ -164,24 +164,24 @@ export default function LogPage() {
     appendSessionHistoryEntry(input);
   };
 
-  const sessionOutputLabel = snapshot.xp.sessionXp >= 180 ? "HIGH OUTPUT" : snapshot.xp.sessionXp >= 110 ? "SOLID OUTPUT" : "LOW OUTPUT";
-  const progressBand = rankProgress.bandProgressPct >= 75 ? "LATE BAND" : rankProgress.bandProgressPct >= 40 ? "MID BAND" : "EARLY BAND";
-  const inactivityPressure = decayPressurePct >= 70 ? "HIGH" : decayPressurePct >= 35 ? "MODERATE" : "LOW";
+  const sessionOutputLabel = snapshot.xp.sessionXp >= 180 ? "Great" : snapshot.xp.sessionXp >= 110 ? "Solid" : "Light";
+  const progressBand = rankProgress.bandProgressPct >= 75 ? "Almost there" : rankProgress.bandProgressPct >= 40 ? "Making progress" : "Getting started";
+  const inactivityPressure = decayPressurePct >= 70 ? "High" : decayPressurePct >= 35 ? "Medium" : "Low";
 
   return (
     <main className="min-h-screen bg-black px-6 py-8 text-cyan-300 sm:px-10 lg:px-16">
       <section className="mx-auto grid w-full max-w-6xl gap-6">
         <PageHeader
-          node="ASCEND // Workout Log"
+          node="ADD WORKOUT"
           title="Log a Workout"
-          description="Enter your session details and watch recovery insights update in real time."
-          statusLine="Auto-save status: active"
+          description="Add your workout details and get simple feedback right away."
+          statusLine="Auto-save is on"
         />
 
         <TacticalReveal delay={0.04}>
           <section className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
           <div className="grid gap-4">
-            <CollapsiblePanel panelId="log-primary-activity" title="Primary activity">
+            <CollapsiblePanel panelId="log-primary-activity" title="Main activity">
               <div className="font-mono">
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <p className="text-xs tracking-[0.14em] text-cyan-300/85">Selected activity: {selectedActivity.label}</p>
@@ -202,7 +202,7 @@ export default function LogPage() {
                   />
                 ) : null}
                 <label className="mt-3 grid gap-1">
-                  <span className="text-xs tracking-[0.16em] text-cyan-500">Workout frequency</span>
+                  <span className="text-xs tracking-[0.16em] text-cyan-500">Workout goal</span>
                   <select
                     value={input.expectedCadence}
                     onChange={(event) => setInput((prev) => ({ ...prev, expectedCadence: event.target.value as SessionLogInput["expectedCadence"] }))}
@@ -216,7 +216,7 @@ export default function LogPage() {
                   </select>
                 </label>
                 <label className="mt-3 grid gap-1">
-                  <span className="text-xs tracking-[0.16em] text-cyan-500">Training profile</span>
+                  <span className="text-xs tracking-[0.16em] text-cyan-500">Workout style</span>
                   <select
                     value={input.bodyTrainingProfile}
                     onChange={(event) =>
@@ -231,11 +231,11 @@ export default function LogPage() {
                     ))}
                   </select>
                 </label>
-                <p className="mt-2 text-xs text-cyan-300/80">Activity context is simplified in this view. Use the selected activity label as your primary signal.</p>
+                <p className="mt-2 text-xs text-cyan-300/80">Pick the activity that best matches what you did today.</p>
               </div>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-session-parameters" title="Advanced calculation inputs" defaultOpen={false}>
+            <CollapsiblePanel panelId="log-session-parameters" title="Advanced controls" defaultOpen={false}>
               <form className="grid gap-3 font-mono">
                 {sessionLogFields.map((field) => (
                   <label key={field.key} className="grid gap-1">
@@ -251,7 +251,7 @@ export default function LogPage() {
                   </label>
                 ))}
               </form>
-              <p className="mt-3 text-xs text-cyan-500/85">This panel exposes raw internal math controls. Default workflow is activity-based input above.</p>
+              <p className="mt-3 text-xs text-cyan-500/85">These are optional fine-tuning controls. Most users can skip this section.</p>
             </CollapsiblePanel>
 
             <CollapsiblePanel panelId="log-body-signal-inputs" title="Body stats" defaultOpen={false}>
@@ -286,10 +286,10 @@ export default function LogPage() {
                   </label>
                 ))}
               </form>
-              <p className="mt-3 text-xs text-cyan-300/80">Fitness baseline is 0-100. Your body map and readiness update from these values.</p>
+              <p className="mt-3 text-xs text-cyan-300/80">Fitness level uses a 0-100 scale and helps tune recommendations.</p>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-discipline-history" title="Consistency history" defaultOpen={false}>
+            <CollapsiblePanel panelId="log-discipline-history" title="Weekly consistency" defaultOpen={false}>
               <div className="font-mono">
                 <p className="text-xs text-cyan-300/85">Set the last 7 days. Day 7 is today.</p>
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -332,40 +332,40 @@ export default function LogPage() {
           </div>
 
           <aside className="grid gap-4 font-mono">
-            <CollapsiblePanel panelId="log-session-output" title="Session result">
+            <CollapsiblePanel panelId="log-session-output" title="Session summary">
               <p className="text-2xl text-cyan-200">{sessionOutputLabel}</p>
               <p className="mt-2 text-xs text-cyan-300/80">
-                Session result is summarized from your current activity setup and consistency trend.
+                Based on your workout details and recent consistency.
               </p>
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-total-xp-projection" title="Progress projection">
+            <CollapsiblePanel panelId="log-total-xp-projection" title="Progress summary">
               <MicroMetricGrid
                 columns={2}
                 items={[
-                  { label: "SESSION OUTPUT", value: sessionOutputLabel },
-                  { label: "PROGRESS BAND", value: progressBand },
-                  { label: "INACTIVITY PRESSURE", value: inactivityPressure, tone: inactivityPressure === "HIGH" ? "red" : "subtle" },
-                  { label: "GRACE WINDOW", value: `${snapshot.xp.graceDays} DAY(S)`, tone: "subtle" },
-                  { label: "FREQUENCY", value: snapshot.xp.expectedCadence, tone: "subtle" },
-                  { label: "RANK STATE", value: currentRank.id },
+                  { label: "SESSION QUALITY", value: sessionOutputLabel.toUpperCase() },
+                  { label: "LEVEL PROGRESS", value: progressBand.toUpperCase() },
+                  { label: "TIME-OFF RISK", value: inactivityPressure.toUpperCase(), tone: inactivityPressure === "High" ? "red" : "subtle" },
+                  { label: "BREAK BUFFER", value: `${snapshot.xp.graceDays} DAY(S)`, tone: "subtle" },
+                  { label: "WORKOUT GOAL", value: snapshot.xp.expectedCadence, tone: "subtle" },
+                  { label: "CURRENT LEVEL", value: currentRank.id },
                 ]}
               />
             </CollapsiblePanel>
 
-            <CollapsiblePanel panelId="log-rank-projection" title="Rank preview" defaultOpen={false}>
+            <CollapsiblePanel panelId="log-rank-projection" title="Level preview" defaultOpen={false}>
               <p className="text-xl text-cyan-200">{currentRank.id}</p>
-              <p className="mt-2 text-xs text-cyan-300/85">PLAN LEVEL: {directiveTier.tier}</p>
+              <p className="mt-2 text-xs text-cyan-300/85">Workout plan: {directiveTier.tier}</p>
               <p className="mt-2 text-xs text-cyan-500/90">
-                {rankProgress.nextRank ? `Next: ${rankProgress.nextRank.id}.` : "Highest rank reached."}
+                {rankProgress.nextRank ? `Next level: ${rankProgress.nextRank.id}.` : "Top level reached."}
               </p>
-              <p className="mt-1 text-xs text-cyan-500/90">BAND PROGRESS: {progressBand}</p>
+              <p className="mt-1 text-xs text-cyan-500/90">Progress stage: {progressBand}</p>
             </CollapsiblePanel>
 
             <SystemTelemetryPanel
-              primaryLabel="Rank progress"
+              primaryLabel="Level progress"
               primaryValuePct={rankProgress.bandProgressPct}
-              primaryHint="Progress in your current rank band"
+              primaryHint="How close you are to your next level"
               disciplineRiskPct={disciplineRiskPct}
               decayPressurePct={decayPressurePct}
               disciplineStates={snapshot.recentDisciplineStates}
@@ -374,7 +374,7 @@ export default function LogPage() {
             <CollapsiblePanel panelId="log-system-note" title="Notes" defaultOpen={false}>
               <p className="text-xs text-cyan-300/85">Primary activity: {selectedActivity.label}</p>
               <p className="mt-3 text-xs text-cyan-300/85">
-                Failed sessions do not remove XP. Lower outcomes reduce XP gain. Consistency improves through regular activity.
+                Missed or lower-effort days do not erase progress. Consistency over time matters most.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
