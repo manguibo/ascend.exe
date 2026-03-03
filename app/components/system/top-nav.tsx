@@ -13,7 +13,9 @@ const navItems: readonly NavItem[] = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Overview" },
   { href: "/log", label: "Activity History" },
+  { href: "/groups", label: "Groups" },
   { href: "/directives", label: "Guidance" },
+  { href: "/account", label: "Account" },
   { href: "/settings", label: "Settings" },
 ];
 
