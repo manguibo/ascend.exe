@@ -19,6 +19,7 @@ export function GlobalStatusRail() {
   const retentionPct = getRetentionPct(snapshot.xp.totalXpBeforeDecay, snapshot.xp.totalXp);
   const retentionRiskBand = getRiskBand(100 - retentionPct);
   const compact = density === "COMPACT";
+  const activityLabel = snapshot.activity?.label ?? snapshot.activity?.codename ?? "Activity";
   const consistencyLabel =
     snapshot.discipline === "COMPROMISED"
       ? "Needs attention"
@@ -39,7 +40,7 @@ export function GlobalStatusRail() {
   return (
     <section className="border-b border-cyan-500/25 bg-black/85 px-6 py-2 sm:px-10 lg:px-16">
       <div className={`mx-auto grid w-full max-w-6xl gap-2 ${compact ? "sm:grid-cols-2 lg:grid-cols-6" : "sm:grid-cols-2 lg:grid-cols-8"}`}>
-        <StatusChip label="TODAY'S ACTIVITY" value={snapshot.activity.label.toUpperCase()} />
+        <StatusChip label="TODAY'S ACTIVITY" value={activityLabel.toUpperCase()} />
         <StatusChip label="TOTAL POINTS" value={`${snapshot.xp.totalXp}`} />
         <StatusChip label="CURRENT LEVEL" value={rank.id} />
         <StatusChip label="WORKOUT PLAN" value={directiveTier.tier} />
