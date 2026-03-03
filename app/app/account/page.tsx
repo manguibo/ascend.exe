@@ -61,7 +61,7 @@ export default function AccountPage() {
         <PageHeader
           node="ACCOUNT"
           title="Operator Profile"
-          description="Create and authenticate an account for group competition features."
+          description="Create and authenticate an account for squad competition features."
           statusLine="Local mode credentials"
         />
 
@@ -90,7 +90,7 @@ export default function AccountPage() {
                       href="/groups"
                       className="border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-xs tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20"
                     >
-                      OPEN GROUPS
+                      OPEN SQUADS
                     </Link>
                   </div>
                 </div>

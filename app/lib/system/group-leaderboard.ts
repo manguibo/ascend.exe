@@ -10,7 +10,7 @@ export type GroupLeaderboardMember = {
 export type GroupLeaderboard = {
   id: string;
   name: string;
-  inviteCode: string;
+  joinCode: string;
   ownerAccountId: string;
   createdAtIso: string;
   members: GroupLeaderboardMember[];
@@ -70,8 +70,8 @@ function parseRecord(value: unknown): GroupRecord {
         .filter((entry): entry is GroupLeaderboardMember => entry !== null && entry.id.length > 0);
       return {
         id: parseText(item.id, "", 64),
-        name: parseText(item.name, "GROUP", 40),
-        inviteCode: parseText(item.inviteCode, "INVITE", 16),
+        name: parseText(item.name, "SQUAD", 40),
+        joinCode: parseText((item.joinCode as unknown) ?? item.inviteCode, "000000", 6),
         ownerAccountId: parseText(item.ownerAccountId, "", 64),
         createdAtIso: parseText(item.createdAtIso, new Date().toISOString(), 64),
         members,
@@ -124,8 +124,20 @@ function buildId(prefix: string): string {
   return `${prefix}_${now}_${salt}`;
 }
 
-function buildInviteCode(): string {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
+function normalizeJoinCode(codeRaw: string): string {
+  const digits = codeRaw.replaceAll(/\D/g, "");
+  return digits.slice(0, 6);
+}
+
+function buildJoinCode(existing: readonly GroupLeaderboard[]): string {
+  const existingCodes = new Set(existing.map((group) => normalizeJoinCode(group.joinCode)));
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const candidate = String(Math.floor(100000 + Math.random() * 900000));
+    if (!existingCodes.has(candidate)) {
+      return candidate;
+    }
+  }
+  return String(Date.now()).slice(-6);
 }
 
 export function getGroupLeaderboards(): readonly GroupLeaderboard[] {
@@ -134,7 +146,9 @@ export function getGroupLeaderboards(): readonly GroupLeaderboard[] {
 
 export function getLeaderboardsForAccount(accountId: string): readonly GroupLeaderboard[] {
   if (!accountId) return [];
-  return getRecordSnapshot().groups.filter((group) => group.ownerAccountId === accountId);
+  return getRecordSnapshot().groups.filter(
+    (group) => group.ownerAccountId === accountId || group.members.some((member) => member.accountId === accountId),
+  );
 }
 
 export function createLeaderboardGroup(accountId: string, ownerUsername: string, groupNameRaw: string, ownerXp: number): GroupLeaderboard | null {
@@ -145,7 +159,7 @@ export function createLeaderboardGroup(accountId: string, ownerUsername: string,
   const group: GroupLeaderboard = {
     id: buildId("grp"),
     name: groupName,
-    inviteCode: buildInviteCode(),
+    joinCode: buildJoinCode(record.groups),
     ownerAccountId: accountId,
     createdAtIso: nowIso,
     members: [
@@ -161,6 +175,45 @@ export function createLeaderboardGroup(accountId: string, ownerUsername: string,
   };
   saveRecord({ groups: [...record.groups, group] });
   return group;
+}
+
+export function joinLeaderboardGroupByCode(accountId: string, usernameRaw: string, codeRaw: string, xpRaw: number): GroupLeaderboard | null {
+  const username = parseText(usernameRaw, "", 32);
+  const code = normalizeJoinCode(codeRaw);
+  if (!accountId || !username || code.length !== 6) return null;
+
+  const record = getRecordSnapshot();
+  const target = record.groups.find((group) => normalizeJoinCode(group.joinCode) === code);
+  if (!target) return null;
+
+  const nowIso = new Date().toISOString();
+  const xp = parseNumber(xpRaw, 0, 0, 1_000_000_000);
+  const existing = target.members.find((member) => member.accountId === accountId);
+  const nextGroup: GroupLeaderboard = {
+    ...target,
+    members: existing
+      ? target.members.map((member) =>
+          member.accountId === accountId
+            ? { ...member, username: parseText(username, member.username, 32), xp, updatedAtIso: nowIso }
+            : member,
+        )
+      : [
+          ...target.members,
+          {
+            id: buildId("mbr"),
+            accountId,
+            username,
+            xp,
+            source: "SELF",
+            updatedAtIso: nowIso,
+          },
+        ],
+  };
+
+  saveRecord({
+    groups: record.groups.map((group) => (group.id === nextGroup.id ? nextGroup : group)),
+  });
+  return nextGroup;
 }
 
 export function addManualLeaderboardMember(groupId: string, usernameRaw: string, xpRaw: number): GroupLeaderboard | null {
