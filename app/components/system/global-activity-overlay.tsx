@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { ActivityPicker } from "@/components/system/activity-picker";
 import { activityCatalog, getActivityDefinition } from "@/lib/system/activity-catalog";
+import { appendSessionHistoryEntry } from "@/lib/system/session-history";
 import { injuryRegionOptions, type InjuryRegionId } from "@/lib/system/session-state";
 import { useSystemSnapshot } from "@/lib/system/use-system-snapshot";
 import { useUiPanelOpen } from "@/lib/system/use-ui-panel-open";
@@ -45,6 +46,7 @@ export function GlobalActivityOverlay() {
   const { input, setInput } = useSystemSnapshot();
   const { open, toggleOpen, setOpen } = useUiPanelOpen("global-activity-overlay", false);
   const [activityQuestionnaire, setActivityQuestionnaire] = useState<ActivityQuestionnaireState | null>(null);
+  const [logNotice, setLogNotice] = useState<string>("");
   const selected = getActivityDefinition(input.activityId);
 
   const applyActivity = (activityId: string) => {
@@ -83,6 +85,20 @@ export function GlobalActivityOverlay() {
 
   const closeQuestionnaire = () => setActivityQuestionnaire(null);
 
+  const logCurrentEntry = () => {
+    const entry = appendSessionHistoryEntry(input);
+    if (!entry) {
+      setLogNotice("ENTRY REJECTED");
+      return;
+    }
+    setInput((prev) => ({
+      ...prev,
+      totalXpBeforeSession: entry.totalXp,
+      inactiveDays: 0,
+    }));
+    setLogNotice("ENTRY STORED");
+  };
+
   useEffect(() => {
     if (!activityQuestionnaire) {
       return;
@@ -100,6 +116,14 @@ export function GlobalActivityOverlay() {
     }));
   }, [activityQuestionnaire, setInput]);
 
+  useEffect(() => {
+    if (!logNotice) {
+      return;
+    }
+    const timer = window.setTimeout(() => setLogNotice(""), 1800);
+    return () => window.clearTimeout(timer);
+  }, [logNotice]);
+
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-40 font-mono">
       {open ? (
@@ -116,6 +140,14 @@ export function GlobalActivityOverlay() {
           </div>
           <p className="mt-2 text-[10px] tracking-[0.13em] text-cyan-500/90">Current: {selected.label}</p>
           <ActivityPicker activities={activityCatalog} selectedActivityId={input.activityId} onSelect={applyActivity} className="mt-3" />
+          <button
+            type="button"
+            onClick={logCurrentEntry}
+            className="mt-3 w-full border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-[10px] tracking-[0.16em] text-cyan-100 transition-colors hover:bg-cyan-500/18"
+          >
+            LOG CURRENT ENTRY
+          </button>
+          {logNotice ? <p className="mt-2 text-[10px] tracking-[0.14em] text-cyan-300/90">{logNotice}</p> : null}
         </section>
       ) : null}
 
@@ -221,6 +253,16 @@ export function GlobalActivityOverlay() {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    logCurrentEntry();
+                    closeQuestionnaire();
+                  }}
+                  className="border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-xs tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20"
+                >
+                  Log entry
+                </button>
                 <button
                   type="button"
                   onClick={closeQuestionnaire}

@@ -1,5 +1,6 @@
 import { buildBodyRecoveryView } from "./body-recovery";
 import { buildSystemSnapshotFromLogInput } from "./mock-data";
+import { getActivityDefinition } from "./activity-catalog";
 import { sanitizeSessionLogInput, type SessionLogInput } from "./session-state";
 
 export type SessionHistoryEntry = {
@@ -8,9 +9,15 @@ export type SessionHistoryEntry = {
   totalXp: number;
   sessionXp: number;
   discipline: string;
+  activityId: string;
+  activityLabel: string;
   activityCodename: string;
+  durationMinutes: number;
+  intensityLevel: number;
   profile: string;
   regionReadiness: Record<string, number>;
+  regionLoadPct: Record<string, number>;
+  regionStress: Record<string, number>;
   developmentAvgPct: number;
 };
 
@@ -85,6 +92,19 @@ function parseRegionReadiness(value: unknown): Record<string, number> {
   );
 }
 
+function parseRegionStress(value: unknown): Record<string, number> {
+  if (typeof value !== "object" || value === null) {
+    return {};
+  }
+
+  const raw = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.entries(raw)
+      .filter(([key]) => typeof key === "string" && key.length > 0 && key.length <= 24)
+      .map(([key, metric]) => [key, parseNumber(metric, 0, 0, 1)]),
+  );
+}
+
 function sanitizeHistoryEntry(value: unknown, index: number): SessionHistoryEntry | null {
   if (typeof value !== "object" || value === null) {
     return null;
@@ -103,9 +123,15 @@ function sanitizeHistoryEntry(value: unknown, index: number): SessionHistoryEntr
     totalXp: parseNumber(raw.totalXp, 0, 0, 1_000_000_000),
     sessionXp: parseNumber(raw.sessionXp, 0, 0, 1_000_000),
     discipline: parseText(raw.discipline, "STABLE", 24),
+    activityId: parseText(raw.activityId, "WEIGHTLIFTING", 64),
+    activityLabel: parseText(raw.activityLabel, "WEIGHTLIFTING", 64),
     activityCodename: parseText(raw.activityCodename, "UNKNOWN", 64),
+    durationMinutes: parseNumber(raw.durationMinutes, 45, 10, 240),
+    intensityLevel: parseNumber(raw.intensityLevel, 5, 1, 10),
     profile: parseText(raw.profile, "FULL", 24),
     regionReadiness: parseRegionReadiness(raw.regionReadiness),
+    regionLoadPct: parseRegionReadiness(raw.regionLoadPct),
+    regionStress: parseRegionStress(raw.regionStress),
     developmentAvgPct: parseNumber(raw.developmentAvgPct, 0, 0, 100),
   };
 }
@@ -176,7 +202,19 @@ export function appendSessionHistoryEntry(input: SessionLogInput): SessionHistor
   const sanitized = sanitizeSessionLogInput(input);
   const snapshot = buildSystemSnapshotFromLogInput(sanitized);
   const body = buildBodyRecoveryView(sanitized);
+  const activity = getActivityDefinition(sanitized.activityId);
   const regionReadiness = Object.fromEntries(body.regions.map((region) => [region.id, region.readinessPct]));
+  const regionLoadPct = Object.fromEntries(body.regions.map((region) => [region.id, region.loadPct]));
+  const regionStress = Object.fromEntries(
+    body.regions.map((region) => {
+      const loadScore = clamp(region.loadPct / 100, 0, 1);
+      const readinessPenalty = clamp((100 - region.readinessPct) / 100, 0, 1);
+      const stress = clamp(loadScore * 0.65 + readinessPenalty * 0.35, 0, 1);
+      return [region.id, Number(stress.toFixed(3))];
+    }),
+  );
+  const durationMinutes = clamp(Math.round((sanitized.durationMultiplier - 0.6) * 80), 10, 240);
+  const intensityLevel = clamp(Math.round((sanitized.intensityMultiplier - 0.75) / 0.14), 1, 10);
   const developmentAvgPct = Math.round((body.development.compositionPct + body.development.strengthPct + body.development.conditioningPct) / 3);
   const timestampIso = new Date().toISOString();
 
@@ -187,9 +225,15 @@ export function appendSessionHistoryEntry(input: SessionLogInput): SessionHistor
     totalXp: snapshot.xp.totalXp,
     sessionXp: snapshot.xp.sessionXp,
     discipline: snapshot.discipline,
+    activityId: activity.id,
+    activityLabel: activity.label,
     activityCodename: sanitized.primaryActivityCodename,
+    durationMinutes,
+    intensityLevel,
     profile: body.profile,
     regionReadiness,
+    regionLoadPct,
+    regionStress,
     developmentAvgPct,
   };
 

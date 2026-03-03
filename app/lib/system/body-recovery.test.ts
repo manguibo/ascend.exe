@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBodyRecoveryView, buildBodyRegionInsights, getAverageReadinessPct, getLowestReadinessRegion } from "./body-recovery";
+import { buildBodyRecoveryView, buildBodyRegionInsights, buildRegionStressAttribution, getAverageReadinessPct, getLowestReadinessRegion } from "./body-recovery";
 import { defaultSessionLogInput } from "./session-state";
 
 describe("buildBodyRecoveryView", () => {
@@ -112,9 +112,15 @@ describe("buildBodyRecoveryView", () => {
         totalXp: 1000,
         sessionXp: 100,
         discipline: "STABLE",
+        activityId: "ROCK_CLIMBING",
+        activityLabel: "ROCK CLIMBING",
         activityCodename: "CLIMB",
+        durationMinutes: 40,
+        intensityLevel: 7,
         profile: "PULL",
         regionReadiness: Object.fromEntries(view.regions.map((region) => [region.id, Math.max(0, region.readinessPct - 2)])),
+        regionLoadPct: Object.fromEntries(view.regions.map((region) => [region.id, region.loadPct])),
+        regionStress: Object.fromEntries(view.regions.map((region) => [region.id, 0.4])),
         developmentAvgPct: 60,
       },
       {
@@ -123,9 +129,15 @@ describe("buildBodyRecoveryView", () => {
         totalXp: 1120,
         sessionXp: 120,
         discipline: "OPTIMAL",
+        activityId: "ROCK_CLIMBING",
+        activityLabel: "ROCK CLIMBING",
         activityCodename: "CLIMB",
+        durationMinutes: 42,
+        intensityLevel: 7,
         profile: "PULL",
         regionReadiness: Object.fromEntries(view.regions.map((region) => [region.id, Math.max(0, region.readinessPct - 1)])),
+        regionLoadPct: Object.fromEntries(view.regions.map((region) => [region.id, region.loadPct])),
+        regionStress: Object.fromEntries(view.regions.map((region) => [region.id, 0.42])),
         developmentAvgPct: 62,
       },
     ];
@@ -158,9 +170,15 @@ describe("buildBodyRecoveryView", () => {
         totalXp: 1000,
         sessionXp: 100,
         discipline: "STABLE",
+        activityId: "ROCK_CLIMBING",
+        activityLabel: "ROCK CLIMBING",
         activityCodename: "CLIMB",
+        durationMinutes: 45,
+        intensityLevel: 8,
         profile: "PULL",
         regionReadiness: { ARMS: 58, BACK: 57, CORE: 60, CHEST: 60, SHOULDERS: 59, GLUTES: 61, QUADS: 61, HAMSTRINGS: 61 },
+        regionLoadPct: { ARMS: 72, BACK: 70, CORE: 56, CHEST: 48, SHOULDERS: 66, GLUTES: 40, QUADS: 38, HAMSTRINGS: 46 },
+        regionStress: { ARMS: 0.62, BACK: 0.58, CORE: 0.46, CHEST: 0.42, SHOULDERS: 0.54, GLUTES: 0.3, QUADS: 0.28, HAMSTRINGS: 0.34 },
         developmentAvgPct: 60,
       },
       {
@@ -169,9 +187,15 @@ describe("buildBodyRecoveryView", () => {
         totalXp: 1100,
         sessionXp: 100,
         discipline: "STABLE",
+        activityId: "ROCK_CLIMBING",
+        activityLabel: "ROCK CLIMBING",
         activityCodename: "CLIMB",
+        durationMinutes: 44,
+        intensityLevel: 7,
         profile: "PULL",
         regionReadiness: { ARMS: 57, BACK: 56, CORE: 59, CHEST: 59, SHOULDERS: 58, GLUTES: 60, QUADS: 60, HAMSTRINGS: 60 },
+        regionLoadPct: { ARMS: 70, BACK: 69, CORE: 55, CHEST: 47, SHOULDERS: 64, GLUTES: 39, QUADS: 38, HAMSTRINGS: 45 },
+        regionStress: { ARMS: 0.6, BACK: 0.57, CORE: 0.44, CHEST: 0.4, SHOULDERS: 0.52, GLUTES: 0.29, QUADS: 0.28, HAMSTRINGS: 0.33 },
         developmentAvgPct: 60,
       },
     ];
@@ -180,5 +204,49 @@ describe("buildBodyRecoveryView", () => {
     const injuredInsights = buildBodyRegionInsights(injuredView, history);
 
     expect((injuredInsights.ARMS.etaDays ?? 0)).toBeGreaterThan(baseInsights.ARMS.etaDays ?? 0);
+  });
+
+  it("builds activity attribution shares for a selected region", () => {
+    const history = [
+      {
+        id: "a",
+        timestampIso: "2026-01-01T00:00:00.000Z",
+        totalXp: 1000,
+        sessionXp: 100,
+        discipline: "STABLE",
+        activityId: "RUNNING",
+        activityLabel: "RUNNING",
+        activityCodename: "RUN",
+        durationMinutes: 30,
+        intensityLevel: 6,
+        profile: "CONDITIONING",
+        regionReadiness: { ARMS: 55 },
+        regionLoadPct: { ARMS: 62 },
+        regionStress: { ARMS: 0.2 },
+        developmentAvgPct: 55,
+      },
+      {
+        id: "b",
+        timestampIso: "2026-01-02T00:00:00.000Z",
+        totalXp: 1130,
+        sessionXp: 130,
+        discipline: "STABLE",
+        activityId: "ROCK_CLIMBING",
+        activityLabel: "ROCK CLIMBING",
+        activityCodename: "CLIMB",
+        durationMinutes: 45,
+        intensityLevel: 8,
+        profile: "PULL",
+        regionReadiness: { ARMS: 52 },
+        regionLoadPct: { ARMS: 74 },
+        regionStress: { ARMS: 0.5 },
+        developmentAvgPct: 58,
+      },
+    ];
+
+    const attribution = buildRegionStressAttribution(history, "ARMS", 6);
+    expect(attribution).toHaveLength(2);
+    expect(attribution[0]?.activityId).toBe("ROCK_CLIMBING");
+    expect(attribution[0]?.contributionPct).toBeGreaterThan(attribution[1]?.contributionPct ?? 0);
   });
 });

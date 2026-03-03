@@ -73,6 +73,7 @@ export default function Home() {
               stressedRegionLevels={stressedRegionLevels}
               activityCodename={snapshot.activity.codename}
               input={input}
+              historyEntries={sessionHistory}
             />
           </section>
         </TacticalReveal>

@@ -6,10 +6,11 @@ import { Canvas, useFrame, useLoader, useThree, type ThreeEvent } from "@react-t
 import { OrbitControls, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import type { BodyRecoveryView, BodyRegionInsight, BodyRegionSignal } from "@/lib/system/body-recovery";
+import { buildRegionStressAttribution, type BodyRecoveryView, type BodyRegionInsight, type BodyRegionSignal } from "@/lib/system/body-recovery";
 import { getActivityDefinition } from "@/lib/system/activity-catalog";
 import { deriveAvatarMorphParams } from "@/lib/system/avatar-profile";
 import type { SessionLogInput } from "@/lib/system/session-state";
+import type { SessionHistoryEntry } from "@/lib/system/session-history";
 import { formatHeight, formatWeight, formatWeightDelta } from "@/lib/system/units";
 import { MicroMetricGrid } from "./micro-metric-grid";
 
@@ -19,6 +20,7 @@ type BodyRecoveryDiagramProps = {
   stressedRegionLevels?: Partial<Record<BodyRegionSignal["id"], number>>;
   activityCodename?: string;
   input: SessionLogInput;
+  historyEntries?: readonly SessionHistoryEntry[];
 };
 
 type RecoveryRoute = {
@@ -920,7 +922,15 @@ function ExoskeletonFallback({
   );
 }
 
-export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels = {}, activityCodename, input }: BodyRecoveryDiagramProps) {
+function formatEntryTimestamp(timestampIso: string): string {
+  const parsed = Date.parse(timestampIso);
+  if (!Number.isFinite(parsed)) {
+    return "UNKNOWN";
+  }
+  return new Date(parsed).toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
+}
+
+export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels = {}, activityCodename, input, historyEntries = [] }: BodyRecoveryDiagramProps) {
   const [selectedRegionId, setSelectedRegionId] = useState<VisualRegionId | null>(null);
   const [hoveredRegionId, setHoveredRegionId] = useState<VisualRegionId | null>(null);
   const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
@@ -979,6 +989,12 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
   const selectedRegion = selectedRegionId ? regionById.get(selectedRegionId) ?? null : null;
   const selectedInsight = selectedRegionId ? insights[VISUAL_TO_BASE_REGION[selectedRegionId]] : undefined;
   const selectedRoute = selectedRegion ? buildRecoveryRoute(selectedRegion, activeActivityLabel) : null;
+  const selectedRegionAttribution = useMemo(() => {
+    if (!selectedRegionId) {
+      return [];
+    }
+    return buildRegionStressAttribution(historyEntries, VISUAL_TO_BASE_REGION[selectedRegionId], 10).slice(0, 6);
+  }, [historyEntries, selectedRegionId]);
   const widthSignal = Math.round((morph.shoulderScale * 0.34 + morph.waistScale * 0.33 + morph.hipScale * 0.33) * 100);
   const heightSignal = Math.round(clamp(84 + (input.heightCm - 160) * 0.52 + (morph.legScale - 1) * 18, 80, 152));
   const recoveryRecommendations = useMemo(() => {
@@ -1184,6 +1200,18 @@ export function BodyRecoveryDiagram({ view, insights = {}, stressedRegionLevels 
                   </li>
                 ))}
               </ul>
+              <p className="mt-3 text-[10px] tracking-[0.14em] text-cyan-500">Recent load attribution</p>
+              {selectedRegionAttribution.length > 0 ? (
+                <div className="mt-2 grid gap-1 text-[11px] text-cyan-300/88">
+                  {selectedRegionAttribution.map((entry) => (
+                    <p key={`${selectedRegion.id}-${entry.entryId}`} className="border border-cyan-500/25 px-2 py-1">
+                      {entry.activityLabel} | {entry.contributionPct}% share | stress {entry.stressLoadPct}% | {entry.durationMinutes}m @ {entry.intensityLevel}/10 | {formatEntryTimestamp(entry.timestampIso)}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 border border-cyan-500/25 px-2 py-1 text-[11px] text-cyan-300/80">No logged entries available for attribution.</p>
+              )}
             </div>
           </motion.aside>
         ) : null}

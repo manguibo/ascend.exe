@@ -38,6 +38,18 @@ export type BodyRegionInsight = {
   etaDays: number | null;
 };
 
+export type RegionActivityContribution = {
+  entryId: string;
+  timestampIso: string;
+  activityId: string;
+  activityLabel: string;
+  sessionXp: number;
+  durationMinutes: number;
+  intensityLevel: number;
+  stressLoadPct: number;
+  contributionPct: number;
+};
+
 const regionOrder: readonly BodyRegionId[] = ["CHEST", "BACK", "SHOULDERS", "ARMS", "CORE", "GLUTES", "QUADS", "HAMSTRINGS"];
 
 const disciplineRecoveryBonus: Record<DisciplineState, number> = {
@@ -315,4 +327,51 @@ export function getRecentStressLevels(
       return [regionId, clamp(Number(score.toFixed(3)), 0, 1)];
     }),
   ) as Partial<Record<BodyRegionId, number>>;
+}
+
+export function buildRegionStressAttribution(
+  historyEntries: readonly SessionHistoryEntry[],
+  regionId: BodyRegionId,
+  windowSize = 8,
+): readonly RegionActivityContribution[] {
+  if (historyEntries.length === 0) {
+    return [];
+  }
+
+  const sliceSize = clamp(windowSize, 1, 24);
+  const recentEntries = historyEntries.slice(-sliceSize);
+  const rows = recentEntries
+    .map((entry) => {
+      const stressRaw = entry.regionStress?.[regionId];
+      const readinessRaw = entry.regionReadiness?.[regionId];
+      const fallbackStress = typeof readinessRaw === "number" ? clamp((67 - clamp(readinessRaw, 0, 100)) / 67, 0, 1) : 0;
+      const stress = typeof stressRaw === "number" ? clamp(stressRaw, 0, 1) : fallbackStress;
+      return {
+        entry,
+        stress,
+      };
+    })
+    .filter((row) => row.stress > 0);
+
+  const totalStress = rows.reduce((sum, row) => sum + row.stress, 0);
+  if (totalStress <= 0) {
+    return [];
+  }
+
+  return rows
+    .map(({ entry, stress }) => {
+      const contribution = (stress / totalStress) * 100;
+      return {
+        entryId: entry.id,
+        timestampIso: entry.timestampIso,
+        activityId: entry.activityId,
+        activityLabel: entry.activityLabel || entry.activityCodename,
+        sessionXp: entry.sessionXp,
+        durationMinutes: entry.durationMinutes,
+        intensityLevel: entry.intensityLevel,
+        stressLoadPct: Math.round(stress * 100),
+        contributionPct: Math.round(contribution),
+      };
+    })
+    .sort((a, b) => b.stressLoadPct - a.stressLoadPct);
 }

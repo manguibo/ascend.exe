@@ -12,7 +12,7 @@ type NavItem = {
 const navItems: readonly NavItem[] = [
   { href: "/", label: "Home" },
   { href: "/dashboard", label: "Overview" },
-  { href: "/log", label: "Add Workout" },
+  { href: "/log", label: "Activity History" },
   { href: "/directives", label: "Guidance" },
   { href: "/settings", label: "Settings" },
 ];
