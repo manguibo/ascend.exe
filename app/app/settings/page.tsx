@@ -35,6 +35,17 @@ export default function SettingsPage() {
       activityId: defaultActivityDefinition.id,
       primaryActivityCodename: defaultActivityDefinition.codename,
       bodyTrainingProfile: "AUTO",
+      hybridMode: false,
+      hybridSegments: [
+        {
+          activityId: defaultActivityDefinition.id,
+          sharePct: 100,
+          intensityMultiplier: current.intensityMultiplier,
+          durationMultiplier: current.durationMultiplier,
+          outcomeMultiplier: current.outcomeMultiplier,
+          category: defaultActivityDefinition.profile === "CONDITIONING" ? "CONDITIONING" : "STRENGTH",
+        },
+      ],
       injuryRegionId: "NONE",
       injurySeverityLevel: 0,
     }));

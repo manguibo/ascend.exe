@@ -52,6 +52,21 @@ export function applySessionProfile(current: SessionLogInput, profileId: Session
     durationMultiplier: profile.durationMultiplier,
     outcomeMultiplier: profile.outcomeMultiplier,
     consistencyMultiplier: profile.consistencyMultiplier,
+    hybridSegments: current.hybridSegments.map((segment, index) =>
+      index === 0
+        ? {
+            ...segment,
+            intensityMultiplier: profile.intensityMultiplier,
+            durationMultiplier: profile.durationMultiplier,
+            outcomeMultiplier: profile.outcomeMultiplier,
+          }
+        : {
+            ...segment,
+            intensityMultiplier: Math.max(0.6, profile.intensityMultiplier * 0.92),
+            durationMultiplier: Math.max(0.6, profile.durationMultiplier * 0.95),
+            outcomeMultiplier: profile.outcomeMultiplier,
+          },
+    ),
   };
 }
 
@@ -68,5 +83,7 @@ export function resetSessionInputToStandard(current: SessionLogInput): SessionLo
     bodyWeightKg: current.bodyWeightKg,
     targetWeightKg: current.targetWeightKg,
     fitnessBaselinePct: current.fitnessBaselinePct,
+    hybridMode: current.hybridMode,
+    hybridSegments: current.hybridSegments,
   };
 }

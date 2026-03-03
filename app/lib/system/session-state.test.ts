@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeSessionLogInput } from "./session-state";
+import { getEffectiveHybridSegments, sanitizeSessionLogInput } from "./session-state";
 
 describe("sanitizeSessionLogInput", () => {
   it("normalizes primary activity codename", () => {
@@ -122,5 +122,40 @@ describe("sanitizeSessionLogInput", () => {
     expect(result.bodyWeightKg).toBe(20);
     expect(result.targetWeightKg).toBe(350);
     expect(result.injurySeverityLevel).toBe(10);
+  });
+
+  it("normalizes hybrid segments to a 100 percent split", () => {
+    const result = sanitizeSessionLogInput({
+      hybridMode: true,
+      activityId: "SOCCER",
+      hybridSegments: [
+        { activityId: "SOCCER", sharePct: 70, intensityMultiplier: 1.3, durationMultiplier: 1.2, outcomeMultiplier: 0.9, category: "CONDITIONING" },
+        {
+          activityId: "WEIGHTLIFTING",
+          sharePct: 70,
+          intensityMultiplier: 1.4,
+          durationMultiplier: 1.1,
+          outcomeMultiplier: 0.9,
+          category: "STRENGTH",
+        },
+      ],
+    });
+
+    const total = result.hybridSegments.reduce((sum, segment) => sum + segment.sharePct, 0);
+    expect(total).toBe(100);
+  });
+
+  it("falls back to a single effective segment when hybrid mode is disabled", () => {
+    const result = sanitizeSessionLogInput({
+      activityId: "SOCCER",
+      intensityMultiplier: 1.24,
+      durationMultiplier: 1.08,
+      outcomeMultiplier: 0.91,
+      hybridMode: false,
+    });
+    const effective = getEffectiveHybridSegments(result);
+
+    expect(effective).toHaveLength(1);
+    expect(effective[0]?.activityId).toBe("SOCCER");
   });
 });

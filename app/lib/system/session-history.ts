@@ -1,7 +1,16 @@
 import { buildBodyRecoveryView } from "./body-recovery";
 import { buildSystemSnapshotFromLogInput } from "./mock-data";
 import { getActivityDefinition } from "./activity-catalog";
-import { sanitizeSessionLogInput, type SessionLogInput } from "./session-state";
+import { getEffectiveHybridSegments, sanitizeSessionLogInput, type SessionLogInput } from "./session-state";
+
+export type SessionActivityType = "STRENGTH" | "CONDITIONING" | "HYBRID";
+
+export type SessionHistorySegment = {
+  activityId: string;
+  activityLabel: string;
+  sharePct: number;
+  category: "STRENGTH" | "CONDITIONING";
+};
 
 export type SessionHistoryEntry = {
   id: string;
@@ -14,6 +23,9 @@ export type SessionHistoryEntry = {
   activityCodename: string;
   durationMinutes: number;
   intensityLevel: number;
+  activityType?: SessionActivityType;
+  hybridMode?: boolean;
+  segments?: SessionHistorySegment[];
   profile: string;
   regionReadiness: Record<string, number>;
   regionLoadPct: Record<string, number>;
@@ -105,6 +117,36 @@ function parseRegionStress(value: unknown): Record<string, number> {
   );
 }
 
+function parseSessionActivityType(value: unknown): SessionActivityType | undefined {
+  if (value === "STRENGTH" || value === "CONDITIONING" || value === "HYBRID") {
+    return value;
+  }
+  return undefined;
+}
+
+function parseSegments(value: unknown): SessionHistorySegment[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const segments = value
+    .map((item) => {
+      const raw = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : null;
+      if (!raw) return null;
+      const category = raw.category === "CONDITIONING" ? "CONDITIONING" : "STRENGTH";
+      return {
+        activityId: parseText(raw.activityId, "WEIGHTLIFTING", 64),
+        activityLabel: parseText(raw.activityLabel, "WEIGHTLIFTING", 64),
+        sharePct: parseNumber(raw.sharePct, 50, 0, 100),
+        category,
+      } satisfies SessionHistorySegment;
+    })
+    .filter((entry): entry is SessionHistorySegment => entry !== null)
+    .slice(0, 2);
+
+  return segments.length > 0 ? segments : undefined;
+}
+
 function sanitizeHistoryEntry(value: unknown, index: number): SessionHistoryEntry | null {
   if (typeof value !== "object" || value === null) {
     return null;
@@ -128,6 +170,9 @@ function sanitizeHistoryEntry(value: unknown, index: number): SessionHistoryEntr
     activityCodename: parseText(raw.activityCodename, "UNKNOWN", 64),
     durationMinutes: parseNumber(raw.durationMinutes, 45, 10, 240),
     intensityLevel: parseNumber(raw.intensityLevel, 5, 1, 10),
+    activityType: parseSessionActivityType(raw.activityType),
+    hybridMode: typeof raw.hybridMode === "boolean" ? raw.hybridMode : undefined,
+    segments: parseSegments(raw.segments),
     profile: parseText(raw.profile, "FULL", 24),
     regionReadiness: parseRegionReadiness(raw.regionReadiness),
     regionLoadPct: parseRegionReadiness(raw.regionLoadPct),
@@ -203,6 +248,15 @@ export function appendSessionHistoryEntry(input: SessionLogInput): SessionHistor
   const snapshot = buildSystemSnapshotFromLogInput(sanitized);
   const body = buildBodyRecoveryView(sanitized);
   const activity = getActivityDefinition(sanitized.activityId);
+  const segments = getEffectiveHybridSegments(sanitized).map((segment) => ({
+    activityId: segment.activityId,
+    activityLabel: getActivityDefinition(segment.activityId).label,
+    sharePct: segment.sharePct,
+    category: segment.category,
+  })) as SessionHistorySegment[];
+  const hasConditioning = segments.some((segment) => segment.category === "CONDITIONING");
+  const hasStrength = segments.some((segment) => segment.category === "STRENGTH");
+  const activityType: SessionActivityType = hasConditioning && hasStrength ? "HYBRID" : hasConditioning ? "CONDITIONING" : "STRENGTH";
   const regionReadiness = Object.fromEntries(body.regions.map((region) => [region.id, region.readinessPct]));
   const regionLoadPct = Object.fromEntries(body.regions.map((region) => [region.id, region.loadPct]));
   const regionStress = Object.fromEntries(
@@ -213,8 +267,10 @@ export function appendSessionHistoryEntry(input: SessionLogInput): SessionHistor
       return [region.id, Number(stress.toFixed(3))];
     }),
   );
-  const durationMinutes = clamp(Math.round((sanitized.durationMultiplier - 0.6) * 80), 10, 240);
-  const intensityLevel = clamp(Math.round((sanitized.intensityMultiplier - 0.75) / 0.14), 1, 10);
+  const weightedDurationMultiplier = segments.reduce((sum, segment) => sum + segment.durationMultiplier * (segment.sharePct / 100), 0);
+  const weightedIntensityMultiplier = segments.reduce((sum, segment) => sum + segment.intensityMultiplier * (segment.sharePct / 100), 0);
+  const durationMinutes = clamp(Math.round(((weightedDurationMultiplier || sanitized.durationMultiplier) - 0.6) * 80), 10, 240);
+  const intensityLevel = clamp(Math.round(((weightedIntensityMultiplier || sanitized.intensityMultiplier) - 0.75) / 0.14), 1, 10);
   const developmentAvgPct = Math.round((body.development.compositionPct + body.development.strengthPct + body.development.conditioningPct) / 3);
   const timestampIso = new Date().toISOString();
 
@@ -230,6 +286,9 @@ export function appendSessionHistoryEntry(input: SessionLogInput): SessionHistor
     activityCodename: sanitized.primaryActivityCodename,
     durationMinutes,
     intensityLevel,
+    activityType,
+    hybridMode: sanitized.hybridMode,
+    segments,
     profile: body.profile,
     regionReadiness,
     regionLoadPct,

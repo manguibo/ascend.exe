@@ -49,4 +49,33 @@ describe("buildSystemSnapshotFromLogInput", () => {
 
     expect(snapshot.xp.decayFloorXp).toBe(calculateDecayFloorXp(15000));
   });
+
+  it("uses hybrid composition when enabled", () => {
+    const snapshot = buildSystemSnapshotFromLogInput({
+      ...defaultSessionLogInput,
+      hybridMode: true,
+      hybridSegments: [
+        {
+          activityId: "WEIGHTLIFTING",
+          sharePct: 55,
+          intensityMultiplier: 1.45,
+          durationMultiplier: 1.15,
+          outcomeMultiplier: 0.92,
+          category: "STRENGTH",
+        },
+        {
+          activityId: "RUNNING",
+          sharePct: 45,
+          intensityMultiplier: 1.2,
+          durationMultiplier: 1.28,
+          outcomeMultiplier: 0.9,
+          category: "CONDITIONING",
+        },
+      ],
+    });
+
+    expect(snapshot.activity.protocol).toBe("HYBRID COMPOSITION");
+    expect(snapshot.activity.codename).toContain("WEIGHTLIFTING");
+    expect(snapshot.activity.codename).toContain("RUNNING");
+  });
 });

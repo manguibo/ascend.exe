@@ -9,6 +9,13 @@ export type SessionXpInput = {
   consistencyMultiplier: number;
 };
 
+export type SessionXpSegmentInput = {
+  sharePct: number;
+  intensityMultiplier: number;
+  durationMultiplier: number;
+  outcomeMultiplier: number;
+};
+
 export type InactivityDecayInput = {
   totalXp: number;
   inactiveDays: number;
@@ -36,6 +43,26 @@ export function calculateSessionXp(input: SessionXpInput): number {
     input.consistencyMultiplier;
 
   return Math.round(rawSessionXp);
+}
+
+export function calculateHybridSessionXp(baseRate: number, consistencyMultiplier: number, segments: readonly SessionXpSegmentInput[]): number {
+  if (segments.length === 0) {
+    return 0;
+  }
+
+  const totalShare = segments.reduce((sum, segment) => sum + Math.max(0, segment.sharePct), 0);
+  if (totalShare <= 0) {
+    return 0;
+  }
+
+  const weightedMultiplier = segments.reduce((sum, segment) => {
+    const normalizedShare = Math.max(0, segment.sharePct) / totalShare;
+    const component =
+      Math.max(0, segment.intensityMultiplier) * Math.max(0, segment.durationMultiplier) * Math.max(0, segment.outcomeMultiplier);
+    return sum + component * normalizedShare;
+  }, 0);
+
+  return Math.round(baseRate * consistencyMultiplier * weightedMultiplier);
 }
 
 export function calculateDecayFloorXp(levelStartXp: number, minLevelFloorPct = DEFAULT_LEVEL_FLOOR_PCT): number {

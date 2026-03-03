@@ -27,7 +27,7 @@ export type XpSnapshot = {
 };
 
 export type SystemSnapshot = {
-  mode: "SINGLE ACTIVITY";
+  mode: "SINGLE ACTIVITY" | "HYBRID SESSION";
   activity: ActivitySnapshot;
   discipline: DisciplineState;
   recentDisciplineStates: readonly DisciplineState[];

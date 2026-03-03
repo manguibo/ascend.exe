@@ -5,6 +5,16 @@ import { activityCatalog, defaultActivityDefinition } from "./activity-catalog";
 export type BodyTrainingProfile = "AUTO" | "FULL" | "PUSH" | "PULL" | "LOWER" | "CONDITIONING";
 export type InjuryRegionId = "NONE" | "CHEST" | "BACK" | "SHOULDERS" | "ARMS" | "CORE" | "GLUTES" | "QUADS" | "HAMSTRINGS";
 export type UnitSystem = "METRIC" | "IMPERIAL";
+export type HybridSegmentCategory = "STRENGTH" | "CONDITIONING";
+
+export type HybridSessionSegment = {
+  activityId: string;
+  sharePct: number;
+  intensityMultiplier: number;
+  durationMultiplier: number;
+  outcomeMultiplier: number;
+  category: HybridSegmentCategory;
+};
 
 export type SessionLogInput = {
   primaryActivityCodename: string;
@@ -28,6 +38,8 @@ export type SessionLogInput = {
   injuryRegionId: InjuryRegionId;
   injurySeverityLevel: number;
   recentDisciplineStates: DisciplineState[];
+  hybridMode: boolean;
+  hybridSegments: HybridSessionSegment[];
 };
 
 export const SESSION_LOG_STORAGE_KEY = "ascend.session.log.v1";
@@ -55,6 +67,17 @@ export const defaultSessionLogInput: SessionLogInput = {
   injuryRegionId: "NONE",
   injurySeverityLevel: 0,
   recentDisciplineStates: ["OPTIMAL", "STABLE", "STABLE", "DECLINING", "DECLINING", "DECLINING", "DECLINING"],
+  hybridMode: false,
+  hybridSegments: [
+    {
+      activityId: defaultActivityDefinition.id,
+      sharePct: 100,
+      intensityMultiplier: 1.3,
+      durationMultiplier: 1.15,
+      outcomeMultiplier: 0.85,
+      category: "STRENGTH",
+    },
+  ],
 };
 
 let cachedSerialized: string | null | undefined;
@@ -75,6 +98,8 @@ type SessionLogField = {
     | "fitnessBaselinePct"
     | "injuryRegionId"
     | "injurySeverityLevel"
+    | "hybridMode"
+    | "hybridSegments"
   >;
   label: string;
   step?: string;
@@ -185,6 +210,88 @@ function parseDisciplineState(value: unknown, fallback: DisciplineState): Discip
   return disciplineStateOptions.includes(value as DisciplineState) ? (value as DisciplineState) : fallback;
 }
 
+function parseBoolean(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  return fallback;
+}
+
+function parseHybridCategory(value: unknown): HybridSegmentCategory {
+  return value === "CONDITIONING" ? "CONDITIONING" : "STRENGTH";
+}
+
+function inferSegmentCategory(activityId: string): HybridSegmentCategory {
+  const activity = activityCatalog.find((item) => item.id === activityId);
+  if (!activity) {
+    return "STRENGTH";
+  }
+  return activity.profile === "CONDITIONING" ? "CONDITIONING" : "STRENGTH";
+}
+
+function parseHybridSegments(
+  value: unknown,
+  activityIdFallback: string,
+  intensityMultiplierFallback: number,
+  durationMultiplierFallback: number,
+  outcomeMultiplierFallback: number,
+): HybridSessionSegment[] {
+  if (!Array.isArray(value)) {
+    return [
+      {
+        activityId: activityIdFallback,
+        sharePct: 100,
+        intensityMultiplier: intensityMultiplierFallback,
+        durationMultiplier: durationMultiplierFallback,
+        outcomeMultiplier: outcomeMultiplierFallback,
+        category: inferSegmentCategory(activityIdFallback),
+      },
+    ];
+  }
+
+  const parsed = value
+    .map((item) => {
+      const raw = typeof item === "object" && item !== null ? (item as Record<string, unknown>) : null;
+      if (!raw) return null;
+      const activityId = parseActivityId(raw.activityId);
+      return {
+        activityId,
+        sharePct: parseBoundedNumber(raw.sharePct, 50, 5, 100),
+        intensityMultiplier: parseBoundedNumber(raw.intensityMultiplier, intensityMultiplierFallback, 0, 3),
+        durationMultiplier: parseBoundedNumber(raw.durationMultiplier, durationMultiplierFallback, 0, 3),
+        outcomeMultiplier: parseBoundedNumber(raw.outcomeMultiplier, outcomeMultiplierFallback, 0, 2),
+        category: parseHybridCategory(raw.category) ?? inferSegmentCategory(activityId),
+      } satisfies HybridSessionSegment;
+    })
+    .filter((item): item is HybridSessionSegment => item !== null)
+    .slice(0, 2);
+
+  if (parsed.length === 0) {
+    return [
+      {
+        activityId: activityIdFallback,
+        sharePct: 100,
+        intensityMultiplier: intensityMultiplierFallback,
+        durationMultiplier: durationMultiplierFallback,
+        outcomeMultiplier: outcomeMultiplierFallback,
+        category: inferSegmentCategory(activityIdFallback),
+      },
+    ];
+  }
+
+  const totalShare = parsed.reduce((sum, segment) => sum + segment.sharePct, 0);
+  if (totalShare <= 0) {
+    return parsed.map((segment, index) => ({ ...segment, sharePct: index === 0 ? 100 : 0 }));
+  }
+  return parsed.map((segment, index) => {
+    if (index === parsed.length - 1) {
+      const assigned = parsed.slice(0, -1).reduce((sum, item) => sum + Math.round((item.sharePct / totalShare) * 100), 0);
+      return { ...segment, sharePct: Math.max(0, 100 - assigned) };
+    }
+    return { ...segment, sharePct: Math.round((segment.sharePct / totalShare) * 100) };
+  });
+}
+
 function parseRecentDisciplineStates(value: unknown): DisciplineState[] {
   const fallback = defaultSessionLogInput.recentDisciplineStates;
   if (!Array.isArray(value)) {
@@ -197,17 +304,23 @@ function parseRecentDisciplineStates(value: unknown): DisciplineState[] {
 
 export function sanitizeSessionLogInput(rawValue: unknown): SessionLogInput {
   const raw = typeof rawValue === "object" && rawValue !== null ? (rawValue as Record<string, unknown>) : {};
+  const activityId = parseActivityId(raw.activityId);
+  const intensityMultiplier = parseBoundedNumber(raw.intensityMultiplier, defaultSessionLogInput.intensityMultiplier, 0, 3);
+  const durationMultiplier = parseBoundedNumber(raw.durationMultiplier, defaultSessionLogInput.durationMultiplier, 0, 3);
+  const outcomeMultiplier = parseBoundedNumber(raw.outcomeMultiplier, defaultSessionLogInput.outcomeMultiplier, 0, 2);
+  const hybridSegments = parseHybridSegments(raw.hybridSegments, activityId, intensityMultiplier, durationMultiplier, outcomeMultiplier);
+  const hybridMode = parseBoolean(raw.hybridMode, defaultSessionLogInput.hybridMode);
 
   return {
     primaryActivityCodename: parseActivityCodename(raw.primaryActivityCodename),
-    activityId: parseActivityId(raw.activityId),
+    activityId,
     unitSystem: parseUnitSystem(raw.unitSystem),
     bodyTrainingProfile: parseBodyTrainingProfile(raw.bodyTrainingProfile),
     expectedCadence: parseCadence(raw.expectedCadence),
     baseRate: parseBoundedNumber(raw.baseRate, defaultSessionLogInput.baseRate, 1, 10_000),
-    intensityMultiplier: parseBoundedNumber(raw.intensityMultiplier, defaultSessionLogInput.intensityMultiplier, 0, 3),
-    durationMultiplier: parseBoundedNumber(raw.durationMultiplier, defaultSessionLogInput.durationMultiplier, 0, 3),
-    outcomeMultiplier: parseBoundedNumber(raw.outcomeMultiplier, defaultSessionLogInput.outcomeMultiplier, 0, 2),
+    intensityMultiplier,
+    durationMultiplier,
+    outcomeMultiplier,
     consistencyMultiplier: parseBoundedNumber(raw.consistencyMultiplier, defaultSessionLogInput.consistencyMultiplier, 0, 3),
     totalXpBeforeSession: parseBoundedNumber(raw.totalXpBeforeSession, defaultSessionLogInput.totalXpBeforeSession, 0, 1_000_000_000),
     inactiveDays: parseBoundedNumber(raw.inactiveDays, defaultSessionLogInput.inactiveDays, 0, 365),
@@ -220,7 +333,34 @@ export function sanitizeSessionLogInput(rawValue: unknown): SessionLogInput {
     injuryRegionId: parseInjuryRegion(raw.injuryRegionId),
     injurySeverityLevel: parseBoundedNumber(raw.injurySeverityLevel, defaultSessionLogInput.injurySeverityLevel, 0, 10),
     recentDisciplineStates: parseRecentDisciplineStates(raw.recentDisciplineStates),
+    hybridMode,
+    hybridSegments,
   };
+}
+
+export function getEffectiveHybridSegments(input: SessionLogInput): readonly HybridSessionSegment[] {
+  const fallback: HybridSessionSegment = {
+    activityId: input.activityId,
+    sharePct: 100,
+    intensityMultiplier: input.intensityMultiplier,
+    durationMultiplier: input.durationMultiplier,
+    outcomeMultiplier: input.outcomeMultiplier,
+    category: inferSegmentCategory(input.activityId),
+  };
+
+  if (!input.hybridMode) {
+    return [fallback];
+  }
+
+  const segments = input.hybridSegments.length > 0 ? input.hybridSegments : [fallback];
+  const normalized = parseHybridSegments(
+    segments,
+    input.activityId,
+    input.intensityMultiplier,
+    input.durationMultiplier,
+    input.outcomeMultiplier,
+  );
+  return normalized;
 }
 
 export function loadSessionLogInput(): SessionLogInput {

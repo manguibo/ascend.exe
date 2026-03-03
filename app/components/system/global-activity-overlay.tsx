@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { ActivityPicker } from "@/components/system/activity-picker";
 import { activityCatalog, getActivityDefinition } from "@/lib/system/activity-catalog";
 import { appendSessionHistoryEntry } from "@/lib/system/session-history";
-import { injuryRegionOptions, type InjuryRegionId } from "@/lib/system/session-state";
+import { getEffectiveHybridSegments, injuryRegionOptions, type HybridSessionSegment, type InjuryRegionId } from "@/lib/system/session-state";
 import { useSystemSnapshot } from "@/lib/system/use-system-snapshot";
 import { useUiPanelOpen } from "@/lib/system/use-ui-panel-open";
 
@@ -48,6 +48,9 @@ export function GlobalActivityOverlay() {
   const [activityQuestionnaire, setActivityQuestionnaire] = useState<ActivityQuestionnaireState | null>(null);
   const [logNotice, setLogNotice] = useState<string>("");
   const selected = getActivityDefinition(input.activityId);
+  const effectiveSegments = getEffectiveHybridSegments(input);
+  const primarySegment = effectiveSegments[0];
+  const secondarySegment = effectiveSegments[1] ?? null;
 
   const applyActivity = (activityId: string) => {
     const activity = getActivityDefinition(activityId);
@@ -58,6 +61,24 @@ export function GlobalActivityOverlay() {
       activityId: activity.id,
       primaryActivityCodename: activity.codename,
       bodyTrainingProfile: activity.profile,
+      hybridSegments: [
+        {
+          activityId: activity.id,
+          sharePct: prev.hybridMode && prev.hybridSegments.length > 1 ? prev.hybridSegments[0].sharePct : 100,
+          intensityMultiplier: prev.intensityMultiplier,
+          durationMultiplier: prev.durationMultiplier,
+          outcomeMultiplier: prev.outcomeMultiplier,
+          category: activity.profile === "CONDITIONING" ? "CONDITIONING" : "STRENGTH",
+        },
+        ...(prev.hybridMode && prev.hybridSegments.length > 1
+          ? [
+              {
+                ...prev.hybridSegments[1],
+                sharePct: Math.max(0, 100 - prev.hybridSegments[0].sharePct),
+              },
+            ]
+          : []),
+      ],
     }));
     setActivityQuestionnaire({
       activityId: activity.id,
@@ -85,6 +106,88 @@ export function GlobalActivityOverlay() {
 
   const closeQuestionnaire = () => setActivityQuestionnaire(null);
 
+  const setHybridMode = (enabled: boolean) => {
+    setInput((prev) => {
+      if (!enabled) {
+        return {
+          ...prev,
+          hybridMode: false,
+          hybridSegments: [
+            {
+              activityId: prev.activityId,
+              sharePct: 100,
+              intensityMultiplier: prev.intensityMultiplier,
+              durationMultiplier: prev.durationMultiplier,
+              outcomeMultiplier: prev.outcomeMultiplier,
+              category: getActivityDefinition(prev.activityId).profile === "CONDITIONING" ? "CONDITIONING" : "STRENGTH",
+            },
+          ],
+        };
+      }
+      const existing = getEffectiveHybridSegments(prev);
+      const primary = existing[0];
+      const fallbackSecondary = activityCatalog.find((activity) => activity.id !== primary.activityId && activity.profile === "CONDITIONING") ?? activityCatalog[0];
+      const secondary: HybridSessionSegment =
+        existing[1] ??
+        ({
+          activityId: fallbackSecondary.id,
+          sharePct: 45,
+          intensityMultiplier: clamp(primary.intensityMultiplier * 0.92, 0.6, 3),
+          durationMultiplier: clamp(primary.durationMultiplier * 0.95, 0.6, 3),
+          outcomeMultiplier: primary.outcomeMultiplier,
+          category: fallbackSecondary.profile === "CONDITIONING" ? "CONDITIONING" : "STRENGTH",
+        } satisfies HybridSessionSegment);
+      return {
+        ...prev,
+        hybridMode: true,
+        hybridSegments: [
+          { ...primary, sharePct: 55 },
+          { ...secondary, sharePct: 45 },
+        ],
+      };
+    });
+  };
+
+  const setSecondaryActivity = (activityId: string) => {
+    setInput((prev) => {
+      const primary = getEffectiveHybridSegments(prev)[0];
+      const secondaryActivity = getActivityDefinition(activityId);
+      return {
+        ...prev,
+        hybridMode: true,
+        hybridSegments: [
+          { ...primary, sharePct: clamp(primary.sharePct || 55, 10, 90) },
+          {
+            activityId: secondaryActivity.id,
+            sharePct: Math.max(10, 100 - clamp(primary.sharePct || 55, 10, 90)),
+            intensityMultiplier: clamp(primary.intensityMultiplier * 0.92, 0.6, 3),
+            durationMultiplier: clamp(primary.durationMultiplier * 0.95, 0.6, 3),
+            outcomeMultiplier: primary.outcomeMultiplier,
+            category: secondaryActivity.profile === "CONDITIONING" ? "CONDITIONING" : "STRENGTH",
+          },
+        ],
+      };
+    });
+  };
+
+  const setPrimaryShare = (sharePct: number) => {
+    setInput((prev) => {
+      const segments = getEffectiveHybridSegments(prev);
+      const primary = segments[0];
+      const secondary = segments[1];
+      if (!secondary) return prev;
+      const clamped = clamp(sharePct, 10, 90);
+      return {
+        ...prev,
+        hybridMode: true,
+        hybridSegments: [
+          { ...primary, sharePct: clamped },
+          { ...secondary, sharePct: 100 - clamped },
+        ],
+      };
+    });
+  };
+
   const logCurrentEntry = () => {
     const entry = appendSessionHistoryEntry(input);
     if (!entry) {
@@ -106,6 +209,31 @@ export function GlobalActivityOverlay() {
     const activity = getActivityDefinition(activityQuestionnaire.activityId);
     setInput((prev) => ({
       ...prev,
+      ...(prev.hybridMode
+        ? (() => {
+            const segments = getEffectiveHybridSegments(prev);
+            const primary = segments[0];
+            const secondary = segments[1];
+            const nextPrimary = {
+              ...primary,
+              activityId: activity.id,
+              intensityMultiplier: intensityToMultiplier(activityQuestionnaire.intensityLevel),
+              durationMultiplier: durationToMultiplier(activityQuestionnaire.durationMinutes),
+              outcomeMultiplier: prev.outcomeMultiplier,
+              category: activity.profile === "CONDITIONING" ? "CONDITIONING" : "STRENGTH",
+            };
+            const nextSecondary = secondary
+              ? {
+                  ...secondary,
+                  intensityMultiplier: clamp(nextPrimary.intensityMultiplier * 0.92, 0.6, 3),
+                  durationMultiplier: clamp(nextPrimary.durationMultiplier * 0.95, 0.6, 3),
+                }
+              : undefined;
+            return {
+              hybridSegments: [nextPrimary, ...(nextSecondary ? [nextSecondary] : [])],
+            };
+          })()
+        : {}),
       activityId: activity.id,
       primaryActivityCodename: activity.codename,
       bodyTrainingProfile: activity.profile,
@@ -139,6 +267,59 @@ export function GlobalActivityOverlay() {
             </button>
           </div>
           <p className="mt-2 text-[10px] tracking-[0.13em] text-cyan-500/90">Current: {selected.label}</p>
+          <div className="mt-3 border border-cyan-500/30 p-2">
+            <p className="text-[10px] tracking-[0.14em] text-cyan-500">SESSION COMPOSITION</p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setHybridMode(false)}
+                className={`border px-2 py-1 text-[10px] tracking-[0.14em] ${!input.hybridMode ? "border-cyan-300 text-cyan-100" : "border-cyan-500/35 text-cyan-300"}`}
+              >
+                SINGLE
+              </button>
+              <button
+                type="button"
+                onClick={() => setHybridMode(true)}
+                className={`border px-2 py-1 text-[10px] tracking-[0.14em] ${input.hybridMode ? "border-cyan-300 text-cyan-100" : "border-cyan-500/35 text-cyan-300"}`}
+              >
+                HYBRID
+              </button>
+            </div>
+            {input.hybridMode ? (
+              <div className="mt-2 grid gap-2">
+                <label className="grid gap-1">
+                  <span className="text-[10px] tracking-[0.14em] text-cyan-500">Companion activity</span>
+                  <select
+                    value={secondarySegment?.activityId ?? ""}
+                    onChange={(event) => setSecondaryActivity(event.target.value)}
+                    className="border border-cyan-500/40 bg-black px-2 py-1.5 text-[11px] text-cyan-200 outline-none focus:border-cyan-300"
+                  >
+                    {activityCatalog
+                      .filter((activity) => activity.id !== primarySegment.activityId)
+                      .map((activity) => (
+                        <option key={`secondary-${activity.id}`} value={activity.id} className="bg-black text-cyan-200">
+                          {activity.label}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-[10px] tracking-[0.14em] text-cyan-500">
+                    Primary share ({primarySegment.sharePct}% / {100 - primarySegment.sharePct}%)
+                  </span>
+                  <input
+                    type="range"
+                    min={10}
+                    max={90}
+                    step={1}
+                    value={primarySegment.sharePct}
+                    onChange={(event) => setPrimaryShare(Number(event.target.value))}
+                    className="h-2 w-full cursor-pointer appearance-none border border-cyan-500/40 bg-black accent-cyan-300"
+                  />
+                </label>
+              </div>
+            ) : null}
+          </div>
           <ActivityPicker activities={activityCatalog} selectedActivityId={input.activityId} onSelect={applyActivity} className="mt-3" />
           <button
             type="button"

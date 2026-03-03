@@ -1,5 +1,5 @@
 import type { DisciplineState } from "./types";
-import type { BodyTrainingProfile, SessionLogInput } from "./session-state";
+import { getEffectiveHybridSegments, type BodyTrainingProfile, type SessionLogInput } from "./session-state";
 import type { SessionHistoryEntry } from "./session-history";
 import { getActivityDefinition } from "./activity-catalog";
 
@@ -68,12 +68,30 @@ const regionLoadProfiles: Record<Exclude<BodyTrainingProfile, "AUTO">, Record<Bo
 };
 
 function resolveRegionLoadProfile(input: SessionLogInput, profile: Exclude<BodyTrainingProfile, "AUTO">): Record<BodyRegionId, number> {
-  const base = regionLoadProfiles[profile];
-  const activity = getActivityDefinition(input.activityId);
+  const segments = getEffectiveHybridSegments(input);
+  const primaryProfile: Exclude<BodyTrainingProfile, "AUTO"> =
+    input.hybridMode && segments.length > 1
+      ? segments.some((segment) => segment.category === "CONDITIONING") && segments.some((segment) => segment.category === "STRENGTH")
+        ? "FULL"
+        : segments[0].category === "CONDITIONING"
+          ? "CONDITIONING"
+          : profile
+      : profile;
+  const base = regionLoadProfiles[primaryProfile];
   const baselineBias = 0.08;
+  const activityBiasByRegion = Object.fromEntries(
+    regionOrder.map((regionId) => {
+      const weighted = segments.reduce((sum, segment) => {
+        const activity = getActivityDefinition(segment.activityId);
+        const bias = activity.regionBias[regionId] ?? baselineBias;
+        return sum + bias * (segment.sharePct / 100);
+      }, 0);
+      return [regionId, weighted > 0 ? weighted : baselineBias];
+    }),
+  ) as Record<BodyRegionId, number>;
   const merged = Object.fromEntries(
     regionOrder.map((regionId) => {
-      const activityBias = activity.regionBias[regionId] ?? baselineBias;
+      const activityBias = activityBiasByRegion[regionId] ?? baselineBias;
       const value = base[regionId] * 0.75 + activityBias * 0.7;
       return [regionId, value];
     }),
@@ -103,6 +121,17 @@ function inferProfile(codename: string): Exclude<BodyTrainingProfile, "AUTO"> {
 }
 
 function resolveProfile(input: SessionLogInput): Exclude<BodyTrainingProfile, "AUTO"> {
+  const segments = getEffectiveHybridSegments(input);
+  if (input.hybridMode && segments.length > 1) {
+    const hasConditioning = segments.some((segment) => segment.category === "CONDITIONING");
+    const hasStrength = segments.some((segment) => segment.category === "STRENGTH");
+    if (hasConditioning && hasStrength) {
+      return "FULL";
+    }
+    if (hasConditioning) {
+      return "CONDITIONING";
+    }
+  }
   if (input.bodyTrainingProfile !== "AUTO") {
     return input.bodyTrainingProfile;
   }

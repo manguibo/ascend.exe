@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyInactivityDecay, calculateDecayFloorXp, calculateSessionXp, getGraceDaysForCadence, shouldDemoteRank } from "./calculations";
+import { applyInactivityDecay, calculateDecayFloorXp, calculateHybridSessionXp, calculateSessionXp, getGraceDaysForCadence, shouldDemoteRank } from "./calculations";
 
 describe("calculateSessionXp", () => {
   it("rounds the deterministic session xp formula", () => {
@@ -12,6 +12,17 @@ describe("calculateSessionXp", () => {
     });
 
     expect(result).toBe(168);
+  });
+});
+
+describe("calculateHybridSessionXp", () => {
+  it("computes weighted xp from hybrid segment shares", () => {
+    const result = calculateHybridSessionXp(120, 1.1, [
+      { sharePct: 60, intensityMultiplier: 1.4, durationMultiplier: 1.1, outcomeMultiplier: 0.9 },
+      { sharePct: 40, intensityMultiplier: 1.15, durationMultiplier: 1.3, outcomeMultiplier: 0.95 },
+    ]);
+
+    expect(result).toBe(185);
   });
 });
 
