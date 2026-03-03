@@ -5,21 +5,25 @@ import { CollapsiblePanel } from "@/components/system/collapsible-panel";
 import { PageHeader } from "@/components/system/page-header";
 import { TacticalReveal } from "@/components/system/tactical-reveal";
 import { defaultActivityDefinition, getActivityDefinition } from "@/lib/system/activity-catalog";
+import { systemAudioEngine } from "@/lib/system/audio-engine";
 import { clearOnboardingProfile, markOnboardingComplete } from "@/lib/system/onboarding-state";
 import { resetSessionInputToStandard } from "@/lib/system/profiles";
 import { clearSessionHistory } from "@/lib/system/session-history";
 import { unitSystemOptions, type UnitSystem } from "@/lib/system/session-state";
+import { useAudioPreferences } from "@/lib/system/use-audio-preferences";
 import { useSystemSnapshot } from "@/lib/system/use-system-snapshot";
 import { useUiRailDensity } from "@/lib/system/use-ui-rail-density";
 
 export default function SettingsPage() {
   const { input, setInput } = useSystemSnapshot();
   const { density, setDensity } = useUiRailDensity();
+  const { preferences: audioPreferences, patchPreferences } = useAudioPreferences();
   const [message, setMessage] = useState<string>("");
   const currentActivity = useMemo(() => getActivityDefinition(input.activityId), [input.activityId]);
 
   const applyMessage = (nextMessage: string) => {
     setMessage(nextMessage);
+    void systemAudioEngine.play("confirm");
     window.setTimeout(() => {
       setMessage((current) => (current === nextMessage ? "" : current));
     }, 2400);
@@ -126,6 +130,58 @@ export default function SettingsPage() {
 
         <TacticalReveal delay={0.08}>
           <section className="grid gap-4 lg:grid-cols-2">
+            <CollapsiblePanel panelId="settings-audio" title="Audio settings" className="font-mono">
+              <div className="grid gap-3">
+                <button
+                  type="button"
+                  data-sound="toggle"
+                  onClick={() => patchPreferences({ enabled: !audioPreferences.enabled })}
+                  className="w-full border border-cyan-500/40 px-3 py-2 text-xs tracking-[0.14em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
+                >
+                  {audioPreferences.enabled ? "Mute interface audio" : "Enable interface audio"}
+                </button>
+
+                <label className="grid gap-1">
+                  <span className="text-xs tracking-[0.14em] text-cyan-500">
+                    Master volume ({Math.round(audioPreferences.masterVolume * 100)}%)
+                  </span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={Math.round(audioPreferences.masterVolume * 100)}
+                    onChange={(event) => patchPreferences({ masterVolume: Number(event.target.value) / 100 })}
+                    className="h-2 w-full cursor-pointer appearance-none rounded-full border border-cyan-500/40 bg-black accent-cyan-300"
+                  />
+                </label>
+
+                <label className="grid gap-1">
+                  <span className="text-xs tracking-[0.14em] text-cyan-500">
+                    Effects volume ({Math.round(audioPreferences.effectsVolume * 100)}%)
+                  </span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={Math.round(audioPreferences.effectsVolume * 100)}
+                    onChange={(event) => patchPreferences({ effectsVolume: Number(event.target.value) / 100 })}
+                    className="h-2 w-full cursor-pointer appearance-none rounded-full border border-cyan-500/40 bg-black accent-cyan-300"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  data-sound="confirm"
+                  onClick={() => void systemAudioEngine.play("confirm")}
+                  className="w-fit border border-cyan-500/40 px-3 py-2 text-xs tracking-[0.14em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
+                >
+                  Preview confirmation tone
+                </button>
+              </div>
+            </CollapsiblePanel>
+
             <CollapsiblePanel panelId="settings-data" title="Data and resets" className="font-mono">
               <div className="grid gap-2">
                 <button
@@ -138,6 +194,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={handleClearHistory}
+                  data-sound="alert"
                   className="w-full border border-[#7a2f35]/70 px-3 py-2 text-xs tracking-[0.14em] text-[#ff9aa4] transition-colors hover:bg-[#7a2f35]/20"
                 >
                   Clear session history
@@ -153,6 +210,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   onClick={handleRestartOnboarding}
+                  data-sound="alert"
                   className="w-full border border-cyan-500/40 px-3 py-2 text-xs tracking-[0.14em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
                 >
                   Restart onboarding
@@ -165,4 +223,3 @@ export default function SettingsPage() {
     </main>
   );
 }
-
