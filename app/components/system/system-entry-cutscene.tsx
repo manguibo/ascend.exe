@@ -1,9 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const CUTSCENE_MS = 3400;
+export const ENTRY_CUTSCENE_COMPLETE_EVENT = "ascend:entry-cutscene-complete";
 
 const sequence = [
   { atMs: 250, text: "ASCEND.EXE // YOUR TRAINING COMPANION" },
@@ -16,6 +17,7 @@ const sequence = [
 export function SystemEntryCutscene() {
   const [active, setActive] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const completeRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -28,10 +30,15 @@ export function SystemEntryCutscene() {
       setElapsedMs(Date.now() - startedAt);
     }, 60);
 
-    const done = window.setTimeout(() => {
+    const complete = () => {
       window.clearInterval(ticker);
       setElapsedMs(CUTSCENE_MS);
       setActive(false);
+      window.dispatchEvent(new Event(ENTRY_CUTSCENE_COMPLETE_EVENT));
+    };
+    completeRef.current = complete;
+    const done = window.setTimeout(() => {
+      complete();
     }, CUTSCENE_MS);
 
     return () => {
@@ -72,7 +79,7 @@ export function SystemEntryCutscene() {
                 <p className="text-[10px] tracking-[0.2em] text-cyan-400">LOADING</p>
                 <button
                   type="button"
-                  onClick={() => setActive(false)}
+                  onClick={() => completeRef.current()}
                   className="ui-focus-ring border border-cyan-400/35 px-2 py-1 text-[10px] tracking-[0.16em] text-cyan-200 transition-colors hover:bg-cyan-400/10"
                 >
                   SKIP

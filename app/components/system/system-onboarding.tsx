@@ -1,8 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createAccount, type AccountValidationError } from "@/lib/system/account-state";
+import { ENTRY_CUTSCENE_COMPLETE_EVENT } from "@/components/system/system-entry-cutscene";
 import { displayWeightToKg, formatHeight, formatWeight, getHeightUnitLabel, getWeightUnitLabel, heightCmToDisplay, heightDisplayToCm, kgToDisplayWeight } from "@/lib/system/units";
 import {
   isOnboardingComplete,
@@ -46,6 +47,7 @@ export function SystemOnboarding() {
   const { input, setInput } = useSystemSnapshot();
   const [stepIndex, setStepIndex] = useState(0);
   const [status, setStatus] = useState("");
+  const [cutsceneReady, setCutsceneReady] = useState(false);
   const initialProfile = useMemo(() => loadOnboardingProfile(), []);
   const [heightCm, setHeightCm] = useState(input.heightCm);
   const [bodyWeightKg, setBodyWeightKg] = useState(input.bodyWeightKg);
@@ -58,11 +60,22 @@ export function SystemOnboarding() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const open = useSyncExternalStore(
+  const onboardingRequired = useSyncExternalStore(
     () => () => undefined,
     () => !isOnboardingComplete(),
     () => false,
   );
+  const open = onboardingRequired && cutsceneReady;
+
+  useEffect(() => {
+    if (!onboardingRequired) return;
+
+    const handleReady = () => setCutsceneReady(true);
+    window.addEventListener(ENTRY_CUTSCENE_COMPLETE_EVENT, handleReady);
+    return () => {
+      window.removeEventListener(ENTRY_CUTSCENE_COMPLETE_EVENT, handleReady);
+    };
+  }, [onboardingRequired]);
 
   const currentStep = stepOrder[stepIndex];
   const progressPct = Math.round(((stepIndex + 1) / stepOrder.length) * 100);
@@ -346,4 +359,3 @@ export function SystemOnboarding() {
     </AnimatePresence>
   );
 }
-
