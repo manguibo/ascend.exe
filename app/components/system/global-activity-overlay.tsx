@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { ActivityPicker } from "@/components/system/activity-picker";
+import { getRankProgress } from "@/lib/ranks/progression";
 import { activityCatalog, getActivityDefinition } from "@/lib/system/activity-catalog";
 import { appendSessionHistoryEntry } from "@/lib/system/session-history";
 import { getEffectiveHybridSegments, injuryRegionOptions, type HybridSessionSegment, type InjuryRegionId } from "@/lib/system/session-state";
@@ -16,6 +17,14 @@ type ActivityQuestionnaireState = {
   intensityLevel: number;
   injuryRegionId: InjuryRegionId;
   injurySeverityLevel: number;
+};
+
+type ActivityLogResult = {
+  sessionXp: number;
+  rankId: string;
+  nextRankId: string;
+  bandProgressPct: number;
+  xpToNextRank: number;
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -46,6 +55,7 @@ export function GlobalActivityOverlay() {
   const { input, setInput } = useSystemSnapshot();
   const { open, toggleOpen, setOpen } = useUiPanelOpen("global-activity-overlay", false);
   const [activityQuestionnaire, setActivityQuestionnaire] = useState<ActivityQuestionnaireState | null>(null);
+  const [logResult, setLogResult] = useState<ActivityLogResult | null>(null);
   const [logNotice, setLogNotice] = useState<string>("");
   const selected = getActivityDefinition(input.activityId);
   const effectiveSegments = getEffectiveHybridSegments(input);
@@ -188,17 +198,31 @@ export function GlobalActivityOverlay() {
     });
   };
 
-  const logCurrentEntry = () => {
+  const logCurrentEntry = (options?: { closeQuestionnaireAfter?: boolean; closeOverlayAfter?: boolean }) => {
     const entry = appendSessionHistoryEntry(input);
     if (!entry) {
       setLogNotice("ENTRY REJECTED");
       return;
     }
+    const rankProgress = getRankProgress(entry.totalXp);
     setInput((prev) => ({
       ...prev,
       totalXpBeforeSession: entry.totalXp,
       inactiveDays: 0,
     }));
+    setLogResult({
+      sessionXp: entry.sessionXp,
+      rankId: rankProgress.currentRank.id,
+      nextRankId: rankProgress.nextRank?.id ?? rankProgress.currentRank.id,
+      bandProgressPct: rankProgress.bandProgressPct,
+      xpToNextRank: rankProgress.xpToNextRank,
+    });
+    if (options?.closeQuestionnaireAfter) {
+      setActivityQuestionnaire(null);
+    }
+    if (options?.closeOverlayAfter) {
+      setOpen(false);
+    }
     setLogNotice("ENTRY STORED");
   };
 
@@ -323,7 +347,7 @@ export function GlobalActivityOverlay() {
           <ActivityPicker activities={activityCatalog} selectedActivityId={input.activityId} onSelect={applyActivity} className="mt-3" />
           <button
             type="button"
-            onClick={logCurrentEntry}
+            onClick={() => logCurrentEntry({ closeOverlayAfter: true })}
             className="mt-3 w-full border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-[10px] tracking-[0.16em] text-cyan-100 transition-colors hover:bg-cyan-500/18"
           >
             LOG CURRENT ENTRY
@@ -341,6 +365,61 @@ export function GlobalActivityOverlay() {
       </button>
 
       <AnimatePresence>
+        {logResult ? (
+          <motion.section
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-auto fixed inset-0 z-[75] grid place-items-center bg-black/82 p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="w-full max-w-md border border-cyan-500/45 bg-black p-4 font-mono"
+            >
+              <p className="text-[10px] tracking-[0.2em] text-cyan-500">ENTRY CONFIRMED</p>
+              <p className="mt-2 text-sm text-cyan-100">XP +{logResult.sessionXp}</p>
+              <p className="mt-1 text-[11px] text-cyan-300/90">
+                Rank {logResult.rankId} | Next {logResult.nextRankId}
+              </p>
+
+              <div className="mt-3 border border-cyan-500/35 p-2">
+                <div className="h-2 w-full border border-cyan-500/35 bg-black">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${logResult.bandProgressPct}%` }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
+                    className="h-full bg-cyan-300/85"
+                  />
+                </div>
+                <p className="mt-1 text-[10px] tracking-[0.12em] text-cyan-300/90">{logResult.bandProgressPct}% TO NEXT RANK</p>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] tracking-[0.12em]">
+                <p className="text-cyan-500">CURRENT RANK</p>
+                <p className="text-right text-cyan-100">{logResult.rankId}</p>
+                <p className="text-cyan-500">NEXT RANK</p>
+                <p className="text-right text-cyan-100">{logResult.nextRankId}</p>
+                <p className="text-cyan-500">XP EARNED</p>
+                <p className="text-right text-cyan-100">+{logResult.sessionXp}</p>
+                <p className="text-cyan-500">XP TO RANK UP</p>
+                <p className="text-right text-cyan-100">{logResult.xpToNextRank}</p>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => setLogResult(null)}
+                  className="border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-xs tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20"
+                >
+                  Continue
+                </button>
+              </div>
+            </motion.div>
+          </motion.section>
+        ) : null}
         {activityQuestionnaire ? (
           <motion.section
             initial={{ opacity: 0 }}
@@ -436,10 +515,7 @@ export function GlobalActivityOverlay() {
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    logCurrentEntry();
-                    closeQuestionnaire();
-                  }}
+                  onClick={() => logCurrentEntry({ closeQuestionnaireAfter: true, closeOverlayAfter: true })}
                   className="border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-xs tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20"
                 >
                   Log entry
