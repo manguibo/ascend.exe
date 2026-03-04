@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AccountPresenceBeacon } from "@/components/system/account-presence-beacon";
 import { GlobalActivityOverlay } from "@/components/system/global-activity-overlay";
 import { GlobalQuickActions } from "@/components/system/global-quick-actions";
 import { GlobalStatusRail } from "@/components/system/global-status-rail";
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body className={`${geistMono.variable} relative antialiased`}>
         <SystemBackdrop />
         <div className="relative z-10">
+          <AccountPresenceBeacon />
           <SystemAudio />
           <SystemEntryCutscene />
           <TopNav />

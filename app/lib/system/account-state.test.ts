@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { clearAccountState, createAccount, getCurrentAccount, signIn, signOut } from "./account-state";
+import { clearAccountState, createAccount, getCurrentAccount, isAccountOnline, signIn, signOut } from "./account-state";
 
 describe("account-state", () => {
   beforeEach(() => {
@@ -20,12 +20,14 @@ describe("account-state", () => {
   });
 
   it("supports sign-in and sign-out", () => {
-    createAccount("operator@ascend.local", "operator", "passcode01");
+    const created = createAccount("operator@ascend.local", "operator", "passcode01");
+    const accountId = created.account?.id ?? "";
     signOut();
     expect(getCurrentAccount()).toBeNull();
+    expect(isAccountOnline(accountId)).toBe(false);
     const login = signIn("operator@ascend.local", "passcode01");
     expect(login.ok).toBe(true);
     expect(getCurrentAccount()?.username).toBe("operator");
+    expect(isAccountOnline(accountId)).toBe(true);
   });
 });
-

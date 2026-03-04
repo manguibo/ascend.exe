@@ -20,6 +20,7 @@ const navItems: readonly NavItem[] = [
 
 const menuItems: readonly NavItem[] = [
   { href: "/profile", label: "Profile" },
+  { href: "/friends", label: "Friends" },
   { href: "/account", label: "Account" },
   { href: "/settings", label: "Settings" },
 ];

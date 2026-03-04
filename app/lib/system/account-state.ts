@@ -6,9 +6,15 @@ export type UserAccount = {
   createdAtIso: string;
 };
 
+export type AccountPresence = {
+  online: boolean;
+  lastSeenIso: string;
+};
+
 type AccountRecord = {
   accounts: UserAccount[];
   currentAccountId: string | null;
+  presenceByAccountId: Record<string, AccountPresence>;
 };
 
 export type AccountValidationError =
@@ -32,7 +38,7 @@ export const ACCOUNT_STORAGE_KEY = "ascend.account.state.v1";
 export const ACCOUNT_UPDATED_EVENT = "ascend:account-updated";
 
 let cachedSerialized: string | null | undefined;
-let cachedRecord: AccountRecord = { accounts: [], currentAccountId: null };
+let cachedRecord: AccountRecord = { accounts: [], currentAccountId: null, presenceByAccountId: {} };
 
 function normalizeEmail(value: unknown): string {
   if (typeof value !== "string") return "";
@@ -58,9 +64,9 @@ function simplePasswordHash(password: string): string {
 
 function parseRecord(value: unknown): AccountRecord {
   if (typeof value !== "object" || value === null) {
-    return { accounts: [], currentAccountId: null };
+    return { accounts: [], currentAccountId: null, presenceByAccountId: {} };
   }
-  const raw = value as { accounts?: unknown; currentAccountId?: unknown };
+  const raw = value as { accounts?: unknown; currentAccountId?: unknown; presenceByAccountId?: unknown };
   const accounts = Array.isArray(raw.accounts)
     ? raw.accounts
         .map((entry) => {
@@ -77,7 +83,18 @@ function parseRecord(value: unknown): AccountRecord {
         .filter((entry): entry is UserAccount => entry !== null)
     : [];
   const currentAccountId = typeof raw.currentAccountId === "string" ? raw.currentAccountId : null;
-  return { accounts, currentAccountId };
+  const presenceByAccountId =
+    typeof raw.presenceByAccountId === "object" && raw.presenceByAccountId !== null
+      ? Object.fromEntries(
+          Object.entries(raw.presenceByAccountId as Record<string, unknown>).map(([accountId, presenceRaw]) => {
+            const entry = typeof presenceRaw === "object" && presenceRaw !== null ? (presenceRaw as Record<string, unknown>) : {};
+            const online = entry.online === true;
+            const lastSeenIso = typeof entry.lastSeenIso === "string" ? entry.lastSeenIso : new Date().toISOString();
+            return [accountId, { online, lastSeenIso } satisfies AccountPresence];
+          }),
+        )
+      : {};
+  return { accounts, currentAccountId, presenceByAccountId };
 }
 
 function getRecordSnapshot(): AccountRecord {
@@ -92,7 +109,7 @@ function getRecordSnapshot(): AccountRecord {
 
   cachedSerialized = stored;
   if (!stored) {
-    cachedRecord = { accounts: [], currentAccountId: null };
+    cachedRecord = { accounts: [], currentAccountId: null, presenceByAccountId: {} };
     return cachedRecord;
   }
 
@@ -100,7 +117,7 @@ function getRecordSnapshot(): AccountRecord {
     cachedRecord = parseRecord(JSON.parse(stored));
     return cachedRecord;
   } catch {
-    cachedRecord = { accounts: [], currentAccountId: null };
+    cachedRecord = { accounts: [], currentAccountId: null, presenceByAccountId: {} };
     return cachedRecord;
   }
 }
@@ -122,6 +139,16 @@ function buildAccountId(email: string): string {
   const now = Date.now().toString(36);
   const seed = simplePasswordHash(email + now).slice(1, 9);
   return `acct_${seed}_${now}`;
+}
+
+function withPresence(record: AccountRecord, accountId: string, online: boolean): AccountRecord {
+  return {
+    ...record,
+    presenceByAccountId: {
+      ...record.presenceByAccountId,
+      [accountId]: { online, lastSeenIso: new Date().toISOString() },
+    },
+  };
 }
 
 export function getAccounts(): readonly UserAccount[] {
@@ -158,11 +185,22 @@ export function createAccount(emailRaw: string, usernameRaw: string, passwordRaw
     createdAtIso: new Date().toISOString(),
   };
 
-  const nextRecord: AccountRecord = {
-    accounts: [...record.accounts, account],
-    currentAccountId: account.id,
-  };
-  saveRecord(nextRecord);
+  const nextRecord = withPresence(
+    {
+      accounts: [...record.accounts, account],
+      currentAccountId: account.id,
+      presenceByAccountId: record.presenceByAccountId,
+    },
+    account.id,
+    true,
+  );
+  const previousId = record.currentAccountId;
+  const finalRecord =
+    previousId && previousId !== account.id
+      ? withPresence(nextRecord, previousId, false)
+      : nextRecord;
+
+  saveRecord(finalRecord);
   return { ok: true, account };
 }
 
@@ -175,18 +213,65 @@ export function signIn(emailRaw: string, passwordRaw: string): AccountMutationRe
   if (account.passwordHash !== simplePasswordHash(password)) {
     return { ok: false, error: "PASSWORD_INVALID" };
   }
-  saveRecord({ ...record, currentAccountId: account.id });
+  const withActive = withPresence(
+    {
+      ...record,
+      currentAccountId: account.id,
+    },
+    account.id,
+    true,
+  );
+  const finalRecord =
+    record.currentAccountId && record.currentAccountId !== account.id
+      ? withPresence(withActive, record.currentAccountId, false)
+      : withActive;
+  saveRecord(finalRecord);
   return { ok: true, account };
 }
 
 export function signOut(): void {
   const record = getRecordSnapshot();
   if (!record.currentAccountId) return;
-  saveRecord({ ...record, currentAccountId: null });
+  const next = withPresence(
+    {
+      ...record,
+      currentAccountId: null,
+    },
+    record.currentAccountId,
+    false,
+  );
+  saveRecord(next);
+}
+
+export function touchCurrentAccountPresence(): void {
+  const record = getRecordSnapshot();
+  const accountId = record.currentAccountId;
+  if (!accountId) return;
+  saveRecord(withPresence(record, accountId, true));
+}
+
+export function markAccountOffline(accountId: string): void {
+  if (!accountId) return;
+  const record = getRecordSnapshot();
+  if (!record.accounts.some((account) => account.id === accountId)) return;
+  saveRecord(withPresence(record, accountId, false));
+}
+
+export function getAccountPresence(accountId: string): AccountPresence {
+  const record = getRecordSnapshot();
+  return record.presenceByAccountId[accountId] ?? { online: false, lastSeenIso: "" };
+}
+
+export function isAccountOnline(accountId: string, staleWindowMs = 75_000): boolean {
+  const presence = getAccountPresence(accountId);
+  if (!presence.online) return false;
+  const lastSeenMs = Date.parse(presence.lastSeenIso);
+  if (!Number.isFinite(lastSeenMs)) return false;
+  return Date.now() - lastSeenMs <= staleWindowMs;
 }
 
 export function clearAccountState(): void {
-  saveRecord({ accounts: [], currentAccountId: null });
+  saveRecord({ accounts: [], currentAccountId: null, presenceByAccountId: {} });
 }
 
 export function subscribeAccountState(onStoreChange: () => void): () => void {
