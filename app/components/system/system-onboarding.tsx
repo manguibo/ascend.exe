@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { activityCatalog, getActivityDefinition } from "@/lib/system/activity-catalog";
+import { createAccount, type AccountValidationError } from "@/lib/system/account-state";
 import { displayWeightToKg, formatHeight, formatWeight, getHeightUnitLabel, getWeightUnitLabel, heightCmToDisplay, heightDisplayToCm, kgToDisplayWeight } from "@/lib/system/units";
 import {
   isOnboardingComplete,
@@ -14,27 +14,38 @@ import {
 import { cadenceOptions, unitSystemOptions, type UnitSystem } from "@/lib/system/session-state";
 import { useSystemSnapshot } from "@/lib/system/use-system-snapshot";
 
-type StepId = "BOOT" | "BODY" | "GOAL" | "ACTIVITY" | "READY";
+type StepId = "BOOT" | "BODY" | "GOAL" | "ACCOUNT";
 
-const stepOrder: readonly StepId[] = ["BOOT", "BODY", "GOAL", "ACTIVITY", "READY"];
+const stepOrder: readonly StepId[] = ["BOOT", "BODY", "GOAL", "ACCOUNT"];
 
 const goalOptions: readonly { id: OnboardingGoalId; label: string; detail: string }[] = [
-  { id: "GENERAL_FITNESS", label: "GENERAL FITNESS", detail: "Build healthy habits and feel better overall." },
-  { id: "FAT_LOSS", label: "FAT LOSS", detail: "Focus on regular workouts and weight-loss support." },
-  { id: "MUSCLE_GAIN", label: "MUSCLE GAIN", detail: "Focus on strength workouts and recovery." },
-  { id: "ENDURANCE", label: "ENDURANCE", detail: "Improve stamina so longer sessions feel easier." },
-  { id: "STRENGTH", label: "STRENGTH", detail: "Build power with gradual increases over time." },
-  { id: "CONSISTENCY", label: "CONSISTENCY", detail: "Create a routine you can stick with every week." },
+  { id: "GENERAL_FITNESS", label: "GENERAL FITNESS", detail: "Build healthy habits and maintain baseline capacity." },
+  { id: "FAT_LOSS", label: "FAT LOSS", detail: "Focus cadence and recovery for sustained weight reduction." },
+  { id: "MUSCLE_GAIN", label: "MUSCLE GAIN", detail: "Prioritize progressive overload and recovery compliance." },
+  { id: "ENDURANCE", label: "ENDURANCE", detail: "Increase work capacity and sustain longer sessions." },
+  { id: "STRENGTH", label: "STRENGTH", detail: "Improve force production and load tolerance." },
+  { id: "CONSISTENCY", label: "CONSISTENCY", detail: "Stabilize routine and reduce volatility." },
 ];
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function errorMessage(error: AccountValidationError | undefined): string {
+  if (error === "EMAIL_REQUIRED") return "EMAIL REQUIRED.";
+  if (error === "EMAIL_INVALID") return "EMAIL FORMAT INVALID.";
+  if (error === "EMAIL_EXISTS") return "EMAIL ALREADY REGISTERED.";
+  if (error === "USERNAME_REQUIRED") return "USERNAME REQUIRED.";
+  if (error === "USERNAME_EXISTS") return "USERNAME ALREADY REGISTERED.";
+  if (error === "PASSWORD_REQUIRED") return "PASSWORD REQUIRED.";
+  if (error === "PASSWORD_TOO_SHORT") return "PASSWORD MINIMUM IS 8 CHARACTERS.";
+  return "ACCOUNT REGISTRATION FAILED.";
+}
+
 export function SystemOnboarding() {
   const { input, setInput } = useSystemSnapshot();
-  const [dismissed, setDismissed] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [status, setStatus] = useState("");
   const initialProfile = useMemo(() => loadOnboardingProfile(), []);
   const [heightCm, setHeightCm] = useState(input.heightCm);
   const [bodyWeightKg, setBodyWeightKg] = useState(input.bodyWeightKg);
@@ -43,55 +54,36 @@ export function SystemOnboarding() {
   const [expectedCadence, setExpectedCadence] = useState(input.expectedCadence);
   const [goal, setGoal] = useState<OnboardingGoalId>(initialProfile?.goal ?? "GENERAL_FITNESS");
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(initialProfile?.unitSystem ?? input.unitSystem);
-  const [search, setSearch] = useState("");
-  const [selectedActivities, setSelectedActivities] = useState<string[]>(
-    initialProfile?.knownActivityIds.length ? initialProfile.knownActivityIds : [input.activityId],
-  );
-  const [primaryActivityId, setPrimaryActivityId] = useState(initialProfile?.primaryActivityId || input.activityId);
+  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   const open = useSyncExternalStore(
     () => () => undefined,
-    () => !isOnboardingComplete() && !dismissed,
+    () => !isOnboardingComplete(),
     () => false,
   );
 
   const currentStep = stepOrder[stepIndex];
   const progressPct = Math.round(((stepIndex + 1) / stepOrder.length) * 100);
-  const filteredActivities = useMemo(() => {
-    const query = search.trim().toUpperCase();
-    if (!query) return activityCatalog;
-    return activityCatalog.filter((activity) => activity.label.includes(query) || activity.id.includes(query) || activity.codename.includes(query));
-  }, [search]);
 
   const canAdvance = useMemo(() => {
     if (currentStep === "BODY") {
       return heightCm > 0 && bodyWeightKg > 0 && targetWeightKg > 0;
     }
-    if (currentStep === "ACTIVITY") {
-      return selectedActivities.length > 0 && primaryActivityId.length > 0;
+    if (currentStep === "ACCOUNT") {
+      return email.trim().length > 0 && username.trim().length > 0 && password.length >= 8;
     }
     return true;
-  }, [bodyWeightKg, currentStep, heightCm, primaryActivityId, selectedActivities.length, targetWeightKg]);
-
-  const toggleActivity = (activityId: string) => {
-    setSelectedActivities((current) => {
-      if (current.includes(activityId)) {
-        const next = current.filter((id) => id !== activityId);
-        if (primaryActivityId === activityId) {
-          setPrimaryActivityId(next[0] ?? "");
-        }
-        return next;
-      }
-      const next = [...current, activityId].slice(0, 10);
-      if (!primaryActivityId) {
-        setPrimaryActivityId(activityId);
-      }
-      return next;
-    });
-  };
+  }, [bodyWeightKg, currentStep, email, heightCm, password.length, targetWeightKg, username]);
 
   const completeOnboarding = () => {
-    const primary = getActivityDefinition(primaryActivityId || selectedActivities[0] || input.activityId);
+    const accountResult = createAccount(email, username, password);
+    if (!accountResult.ok) {
+      setStatus(errorMessage(accountResult.error));
+      return;
+    }
+
     setInput((current) => ({
       ...current,
       heightCm: clamp(heightCm, 120, 230),
@@ -100,9 +92,6 @@ export function SystemOnboarding() {
       fitnessBaselinePct: clamp(fitnessBaselinePct, 0, 100),
       expectedCadence,
       unitSystem,
-      activityId: primary.id,
-      primaryActivityCodename: primary.codename,
-      bodyTrainingProfile: primary.profile,
     }));
 
     saveOnboardingProfile({
@@ -110,16 +99,10 @@ export function SystemOnboarding() {
       createdAtIso: new Date().toISOString(),
       goal,
       unitSystem,
-      knownActivityIds: selectedActivities,
-      primaryActivityId: primary.id,
+      knownActivityIds: [],
+      primaryActivityId: "",
     });
     markOnboardingComplete(true);
-    setDismissed(true);
-  };
-
-  const skipOnboarding = () => {
-    markOnboardingComplete(true);
-    setDismissed(true);
   };
 
   const nextStep = () => setStepIndex((current) => Math.min(stepOrder.length - 1, current + 1));
@@ -128,12 +111,7 @@ export function SystemOnboarding() {
   return (
     <AnimatePresence>
       {open ? (
-        <motion.div
-          initial={false}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-[1px]"
-        >
+        <motion.div initial={false} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[95] bg-black/86 backdrop-blur-[1px]">
           <div className="flex min-h-full items-center justify-center px-4 py-8">
             <motion.section
               initial={false}
@@ -143,28 +121,16 @@ export function SystemOnboarding() {
               className="relative w-[min(96vw,760px)] overflow-hidden border border-cyan-500/55 bg-black/95 p-5 font-mono shadow-[0_0_26px_rgba(0,229,255,0.16)]"
             >
               <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(0,229,255,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(0,229,255,0.2)_1px,transparent_1px)] [background-size:20px_20px]" />
-              <motion.div
-                aria-hidden
-                className="pointer-events-none absolute top-0 h-full w-20 bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent"
-                initial={false}
-                animate={{ x: ["-130%", "400%"] }}
-                transition={{ duration: 3.6, ease: "linear", repeat: Infinity, repeatDelay: 0.9 }}
-              />
 
               <div className="relative z-10">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] tracking-[0.2em] text-cyan-500">ASCEND.EXE INITIALIZATION</p>
-                    <h2 className="mt-2 text-lg tracking-[0.08em] text-cyan-100">SETTING UP YOUR PROFILE</h2>
+                    <h2 className="mt-2 text-lg tracking-[0.08em] text-cyan-100">MANDATORY PROFILE SETUP</h2>
                   </div>
-                  <button
-                    type="button"
-                    onClick={skipOnboarding}
-                    className="border border-cyan-500/35 px-2 py-1 text-[10px] tracking-[0.14em] text-cyan-300 transition-colors hover:bg-cyan-500/10"
-                  >
-                    SKIP
-                  </button>
                 </div>
+
+                {status ? <p className="mt-3 border border-cyan-500/35 px-3 py-2 text-[11px] tracking-[0.14em] text-cyan-300/90">{status}</p> : null}
 
                 <div className="mt-3 h-1.5 border border-cyan-500/30 bg-black">
                   <motion.div
@@ -190,13 +156,12 @@ export function SystemOnboarding() {
                   >
                     {currentStep === "BOOT" ? (
                       <div className="grid gap-3">
-                        <p className="text-sm text-cyan-200">Welcome. This quick setup personalizes the app for you.</p>
-                        <p className="text-xs text-cyan-300/85">It only takes a minute, and you can edit everything later in Settings.</p>
+                        <p className="text-sm text-cyan-200">Initialization requires full onboarding completion.</p>
+                        <p className="text-xs text-cyan-300/85">Progression and squad competition are locked until setup is complete.</p>
                         <div className="grid gap-2 text-xs text-cyan-300/90">
-                          <p className="border border-cyan-500/25 px-3 py-2">1. YOUR BODY DETAILS</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">2. YOUR MAIN GOAL</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">3. YOUR ACTIVITIES</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">4. FINAL CHECK</p>
+                          <p className="border border-cyan-500/25 px-3 py-2">1. BODY SIGNALS</p>
+                          <p className="border border-cyan-500/25 px-3 py-2">2. GOAL VECTOR</p>
+                          <p className="border border-cyan-500/25 px-3 py-2">3. ACCOUNT REGISTRATION</p>
                         </div>
                       </div>
                     ) : null}
@@ -304,70 +269,40 @@ export function SystemOnboarding() {
                       </div>
                     ) : null}
 
-                    {currentStep === "ACTIVITY" ? (
+                    {currentStep === "ACCOUNT" ? (
                       <div className="grid gap-3">
+                        <p className="text-sm text-cyan-200">Final step. Register account to unlock app access.</p>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <p className="border border-cyan-500/25 px-3 py-2 text-xs text-cyan-300/90">HEIGHT {formatHeight(clamp(heightCm, 120, 230), unitSystem)}</p>
+                          <p className="border border-cyan-500/25 px-3 py-2 text-xs text-cyan-300/90">WEIGHT {formatWeight(clamp(bodyWeightKg, 20, 350), unitSystem)}</p>
+                        </div>
                         <label className="grid gap-1">
-                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">SEARCH ACTIVITIES</span>
+                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">EMAIL</span>
                           <input
-                            type="text"
-                            value={search}
-                            onChange={(event) => setSearch(event.target.value.toUpperCase())}
-                            placeholder="Try: running, climbing, soccer"
-                            className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none placeholder:text-cyan-700/70 focus:border-cyan-300"
+                            type="email"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-300"
                           />
                         </label>
-                        <p className="text-[11px] text-cyan-300/90">Pick activities you do now, then choose your main one.</p>
-                        <div className="grid max-h-56 gap-2 overflow-auto border border-cyan-500/25 p-2">
-                          {filteredActivities.slice(0, 40).map((activity) => {
-                            const selected = selectedActivities.includes(activity.id);
-                            const primary = primaryActivityId === activity.id;
-                            return (
-                              <div key={activity.id} className="border border-cyan-500/25 p-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleActivity(activity.id)}
-                                    className={`border px-2 py-1 text-[10px] tracking-[0.14em] ${
-                                      selected ? "border-cyan-300 text-cyan-100" : "border-cyan-500/35 text-cyan-300"
-                                    }`}
-                                  >
-                                    {selected ? "ADDED" : "ADD"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={!selected}
-                                    onClick={() => setPrimaryActivityId(activity.id)}
-                                    className={`border px-2 py-1 text-[10px] tracking-[0.14em] ${
-                                      primary ? "border-cyan-300 bg-cyan-500/10 text-cyan-100" : "border-cyan-500/35 text-cyan-300"
-                                    } disabled:opacity-35`}
-                                  >
-                                    {primary ? "MAIN" : "SET MAIN"}
-                                  </button>
-                                </div>
-                                <p className="mt-2 text-xs tracking-[0.14em] text-cyan-200">{activity.label}</p>
-                                <p className="mt-1 text-[10px] tracking-[0.12em] text-cyan-500/90">Type: {activity.profile}</p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {currentStep === "READY" ? (
-                      <div className="grid gap-2">
-                        <p className="text-sm text-cyan-100">You are all set.</p>
-                        <p className="text-xs text-cyan-300/85">Review your setup:</p>
-                        <div className="grid gap-2 text-xs text-cyan-300/90 sm:grid-cols-2">
-                          <p className="border border-cyan-500/25 px-3 py-2">HEIGHT {formatHeight(clamp(heightCm, 120, 230), unitSystem)}</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">WEIGHT {formatWeight(clamp(bodyWeightKg, 20, 350), unitSystem)}</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">TARGET {formatWeight(clamp(targetWeightKg, 20, 350), unitSystem)}</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">FITNESS {clamp(fitnessBaselinePct, 0, 100)}%</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">GOAL {goal.replaceAll("_", " ")}</p>
-                          <p className="border border-cyan-500/25 px-3 py-2">FREQUENCY {expectedCadence}</p>
-                          <p className="border border-cyan-500/25 px-3 py-2 sm:col-span-2">
-                            MAIN ACTIVITY {getActivityDefinition(primaryActivityId || selectedActivities[0] || input.activityId).label}
-                          </p>
-                        </div>
+                        <label className="grid gap-1">
+                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">USERNAME</span>
+                          <input
+                            type="text"
+                            value={username}
+                            onChange={(event) => setUsername(event.target.value)}
+                            className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-300"
+                          />
+                        </label>
+                        <label className="grid gap-1">
+                          <span className="text-[10px] tracking-[0.16em] text-cyan-500">PASSWORD (8+ CHARACTERS)</span>
+                          <input
+                            type="password"
+                            value={password}
+                            onChange={(event) => setPassword(event.target.value)}
+                            className="border border-cyan-500/40 bg-black px-3 py-2 text-sm text-cyan-200 outline-none focus:border-cyan-300"
+                          />
+                        </label>
                       </div>
                     ) : null}
                   </motion.div>
@@ -383,7 +318,7 @@ export function SystemOnboarding() {
                     BACK
                   </button>
 
-                  {currentStep !== "READY" ? (
+                  {currentStep !== "ACCOUNT" ? (
                     <button
                       type="button"
                       onClick={nextStep}
@@ -396,9 +331,10 @@ export function SystemOnboarding() {
                     <button
                       type="button"
                       onClick={completeOnboarding}
-                      className="border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-xs tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20"
+                      disabled={!canAdvance}
+                      className="border border-cyan-300/70 bg-cyan-500/10 px-3 py-2 text-xs tracking-[0.14em] text-cyan-100 transition-colors hover:bg-cyan-500/20 disabled:opacity-35"
                     >
-                      FINISH SETUP
+                      CREATE ACCOUNT AND ENTER
                     </button>
                   )}
                 </div>
@@ -410,3 +346,4 @@ export function SystemOnboarding() {
     </AnimatePresence>
   );
 }
+
